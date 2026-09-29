@@ -10,8 +10,10 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - `docs/sprints/SPRINT_03-cipher-engines.md`: 15 engine için kontrol listesi, KAT kaynakları, DoD.
 - `docs/decisions/ADR-0002-cipher-engine-strategy.md`: port-vs-bağımlılık kararı (port).
 - TEA engine (`CipherSuite.TEA`): Wheeler–Needham + bağımsız KAT setiyle doğrulandı (7 vektör).
-- `BlockCipherEngineFactory`: implemente suite'ler için üretici; diğerleri `CipherEngineNotImplementedException`.
-- Test: 155 → 173 (+18: TEA KAT/decrypt/round-trip 14, factory 4).
+- RC6 engine (`CipherSuite.RC6`): RC6 paper + IETF KAT'leri (5 vektör, 16/24-byte key; little-endian).
+- IDEA engine (`CipherSuite.IDEA`): HAC Tablo 7.12 (4 vektör + 52 subkey schedule testi).
+- `BlockCipherEngineFactory`: TEA + RC6 + IDEA; diğerleri `CipherEngineNotImplementedException`.
+- Test: 155 → 191 (+36: TEA 14, RC6 9, IDEA 9, factory 4).
 
 ## [2026-09-29] — Sprint 2: cipher çekirdek (bölüm 2)
 ### Eklenen

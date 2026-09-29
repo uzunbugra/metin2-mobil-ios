@@ -9,7 +9,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA tamam; factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA tamam; factory + KAT altyapısı hazır |
 
 ## Ne Yapıldı
 
@@ -29,7 +29,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `Metin2.Protocol` — Saf C#, **UnityEngine bağımsız** (`noEngineReferences: true`), paket codec'leri
   - `Metin2.Network` — TCP transport, session state
   - `Metin2.Tests` — EditMode golden byte test suite
-- **Golden Byte Test'leri** (173 test, hepsi geçiyor):
+- **Golden Byte Test'leri** (191 test, hepsi geçiyor):
   - Yukarıdaki 74 test (Sprint 1) +
   - `PacketFramer` — fragmented/coalesced TCP, 0x00 padding, unknown-header drop, max-length guard (10 test)
   - `PacketRegistry` — phase-aware dispatch, handshake-path izinleri, duplicate/validation (7 test)
@@ -39,6 +39,8 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `CipherKeyDerivation` — el-hesaplı vektörler, fail-closed (6 test)
   - `CipherSession` + `CtrStream` — polarity aynası, round-trip, big-endian counter (10 test)
   - `TeaEngine` — 7 KAT vektörü + decrypt + round-trip (14 test)
+  - `Rc6Engine` — 5 KAT vektörü (16/24-byte key) + decrypt + round-trip (9 test)
+  - `IdeaEngine` — 4 KAT vektörü + 52 subkey schedule + decrypt + round-trip (9 test)
   - `BlockCipherEngineFactory` — suite yönlendirme + TEA session round-trip (4 test)
   - `TPacketGCHandshake` (0xff, 13 byte) — serialize/deserialize round-trip + edge cases
   - `TPacketKeyAgreement` (0xfb, 261 byte) — serialize/deserialize + zero-padding
@@ -99,7 +101,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 173/173 başarılı ✅**
+**Son test sonucu: 191/191 başarılı ✅**
 
 ## Dokümanlar
 
@@ -111,7 +113,7 @@ dotnet test Metin2.Tests.csproj
 
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (devam ediyor): TEA portu + KAT testleri + factory tamam (`docs/sprints/SPRINT_03-cipher-engines.md`). Kalan 12 engine aynı pattern'le (her biri resmi KAT ile). Sonraki hedef: engine'ler bitince canlı sunucuya bağlanıp handshake + key agreement tamamlamak.
+**Sprint 3 — Cipher Engine'leri** (devam ediyor): TEA + RC6 + IDEA portları + KAT testleri + factory tamam (`docs/sprints/SPRINT_03-cipher-engines.md`). Kalan 10 engine aynı pattern'le (tablo-tabanlı olanlar için tablo stratejisi sprint kaydında). Sonraki hedef: engine'ler bitince canlı sunucuya bağlanıp handshake + key agreement tamamlamak.
 
 ## Kurallar
 
