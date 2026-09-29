@@ -1,0 +1,109 @@
+using System;
+using NUnit.Framework;
+using Metin2.Protocol.Constants;
+using Metin2.Protocol.Registry;
+
+namespace Metin2.Tests.EditMode.Protocol
+{
+    [TestFixture]
+    public class PacketRegistryTests
+    {
+        [Test]
+        public void HandshakeRegistry_ContainsFourSourceVerifiedEntries()
+        {
+            var registry = PacketRegistry.CreateHandshakeRegistry();
+
+            Assert.AreEqual(4, registry.Count);
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_HANDSHAKE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_KEY_AGREEMENT, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_PHASE, out _));
+        }
+
+        [Test]
+        public void HandshakePacket_AllowedOnlyInHandshakePhase()
+        {
+            var registry = PacketRegistry.CreateHandshakeRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_HANDSHAKE, PhaseType.Handshake));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_HANDSHAKE, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_HANDSHAKE, PhaseType.Select));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_HANDSHAKE, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_HANDSHAKE, PhaseType.Auth));
+        }
+
+        [Test]
+        public void KeyAgreementPackets_AllowedOnlyInHandshakePhase()
+        {
+            var registry = PacketRegistry.CreateHandshakeRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_KEY_AGREEMENT, PhaseType.Handshake));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_KEY_AGREEMENT, PhaseType.Game));
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, PhaseType.Handshake));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, PhaseType.Login));
+        }
+
+        [Test]
+        public void PhasePacket_AllowedInEveryPhase()
+        {
+            var registry = PacketRegistry.CreateHandshakeRegistry();
+
+            foreach (PhaseType phase in Enum.GetValues(typeof(PhaseType)))
+            {
+                Assert.IsTrue(
+                    registry.IsAllowed(PacketHeaders.HEADER_GC_PHASE, phase),
+                    $"HEADER_GC_PHASE must be allowed in phase {phase} (server pushes it on every SetPhase, desc.cpp:518).");
+            }
+        }
+
+        [Test]
+        public void UnknownHeader_DeniedInAllPhases()
+        {
+            var registry = PacketRegistry.CreateHandshakeRegistry();
+
+            Assert.IsFalse(registry.TryGet(0x42, out _));
+            foreach (PhaseType phase in Enum.GetValues(typeof(PhaseType)))
+            {
+                Assert.IsFalse(registry.IsAllowed(0x42, phase));
+            }
+        }
+
+        [Test]
+        public void DuplicateRegistration_ThrowsInvalidOperationException()
+        {
+            var registry = new PacketRegistry();
+            registry.Register(new PacketDescriptor(
+                0xff, "HEADER_GC_HANDSHAKE", PacketDirection.ServerToClient, 13,
+                allowedPhases: new[] { PhaseType.Handshake }));
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                registry.Register(new PacketDescriptor(
+                    0xff, "DUPLICATE", PacketDirection.ServerToClient, 13,
+                    allowedPhases: new[] { PhaseType.Handshake }));
+            });
+        }
+
+        [Test]
+        public void DescriptorValidation_RejectsInvalidMetadata()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                new PacketDescriptor(0xff, null, PacketDirection.ServerToClient, 13,
+                    allowedPhases: new[] { PhaseType.Handshake });
+            });
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            {
+                new PacketDescriptor(0xff, "X", PacketDirection.ServerToClient, 0,
+                    allowedPhases: new[] { PhaseType.Handshake });
+            });
+
+            Assert.Throws<ArgumentException>(() =>
+            {
+                new PacketDescriptor(0xff, "X", PacketDirection.ServerToClient, 13);
+            });
+        }
+    }
+}
