@@ -8,7 +8,8 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 |--------|-------|----------|
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
-| Sprint 2 — Protocol Core | 🔜 Sırada | TCP transport, framer, handshake/cipher |
+| Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA tamam; factory + KAT altyapısı hazır |
 
 ## Ne Yapıldı
 
@@ -28,7 +29,17 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `Metin2.Protocol` — Saf C#, **UnityEngine bağımsız** (`noEngineReferences: true`), paket codec'leri
   - `Metin2.Network` — TCP transport, session state
   - `Metin2.Tests` — EditMode golden byte test suite
-- **Golden Byte Test'leri** (74 test, hepsi geçiyor):
+- **Golden Byte Test'leri** (173 test, hepsi geçiyor):
+  - Yukarıdaki 74 test (Sprint 1) +
+  - `PacketFramer` — fragmented/coalesced TCP, 0x00 padding, unknown-header drop, max-length guard (10 test)
+  - `PacketRegistry` — phase-aware dispatch, handshake-path izinleri, duplicate/validation (7 test)
+  - `TcpConnection` — loopback connect/send/receive/disconnect/graceful-close (5 test)
+  - `Dh2KeyAgreement` — RFC 5114 sabitleri, subgroup order, A↔B simetrisi, fail-closed (11 test)
+  - `CipherSuite` — 14 selector eşleşmesi, block/key uzunlukları (33 test)
+  - `CipherKeyDerivation` — el-hesaplı vektörler, fail-closed (6 test)
+  - `CipherSession` + `CtrStream` — polarity aynası, round-trip, big-endian counter (10 test)
+  - `TeaEngine` — 7 KAT vektörü + decrypt + round-trip (14 test)
+  - `BlockCipherEngineFactory` — suite yönlendirme + TEA session round-trip (4 test)
   - `TPacketGCHandshake` (0xff, 13 byte) — serialize/deserialize round-trip + edge cases
   - `TPacketKeyAgreement` (0xfb, 261 byte) — serialize/deserialize + zero-padding
   - `TPacketCGLogin3` (111, 65 byte) — serialize/deserialize + credential truncation safety
@@ -66,10 +77,13 @@ Assets/Scripts/
 │   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketGCPhaseCodec
 │   ├── Constants/  — PacketHeaders, PhaseType
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException
+│   ├── Framing/    — PacketLengthTable, PacketFramer (TCP stream → frame)
+│   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
+│   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation, CipherSession, CtrStream
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
-│   └── Transport/  — ITcpConnection, SimpleTcpProbe
+│   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
     └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests, PacketGCPhaseTests, PacketReaderWriterTests
@@ -85,7 +99,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 74/74 başarılı ✅**
+**Son test sonucu: 173/173 başarılı ✅**
 
 ## Dokümanlar
 
@@ -97,7 +111,7 @@ dotnet test Metin2.Tests.csproj
 
 ## Sonraki Adım
 
-**Sprint 2 — Protocol Core**: TCP transport, packet framer (fragmented/coalesced TCP handling), cipher/key agreement implementasyonu, phase-aware packet registry. İlk hedef: canlı sunucuya bağlanıp handshake + key agreement tamamlamak.
+**Sprint 3 — Cipher Engine'leri** (devam ediyor): TEA portu + KAT testleri + factory tamam (`docs/sprints/SPRINT_03-cipher-engines.md`). Kalan 12 engine aynı pattern'le (her biri resmi KAT ile). Sonraki hedef: engine'ler bitince canlı sunucuya bağlanıp handshake + key agreement tamamlamak.
 
 ## Kurallar
 
