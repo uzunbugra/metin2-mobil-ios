@@ -1,0 +1,25 @@
+{
+    "name": "Metin2.Tests",
+    "rootNamespace": "Metin2.Tests",
+    "references": [
+        "Metin2.Core",
+        "Metin2.Protocol",
+        "Metin2.Network",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

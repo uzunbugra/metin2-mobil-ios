@@ -1,0 +1,17 @@
+{
+    "name": "Metin2.Network",
+    "rootNamespace": "Metin2.Network",
+    "references": [
+        "Metin2.Core",
+        "Metin2.Protocol"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
