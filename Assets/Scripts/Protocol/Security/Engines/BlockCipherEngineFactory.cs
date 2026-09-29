@@ -13,7 +13,9 @@ namespace Metin2.Protocol.Security.Engines
     {
         public static bool IsSupported(CipherSuite suite)
         {
-            return suite == CipherSuite.TEA;
+            return suite == CipherSuite.TEA
+                || suite == CipherSuite.RC6
+                || suite == CipherSuite.IDEA;
         }
 
         public static IBlockCipherEngine Create(CipherSuite suite, byte[] key)
@@ -22,6 +24,10 @@ namespace Metin2.Protocol.Security.Engines
             {
                 case CipherSuite.TEA:
                     return new TeaEngine(key);
+                case CipherSuite.RC6:
+                    return new Rc6Engine(key);
+                case CipherSuite.IDEA:
+                    return new IdeaEngine(key);
                 default:
                     throw new CipherEngineNotImplementedException(CipherSuiteTable.GetName(suite));
             }

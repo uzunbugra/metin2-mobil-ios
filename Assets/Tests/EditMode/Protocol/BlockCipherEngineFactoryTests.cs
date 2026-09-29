@@ -9,9 +9,11 @@ namespace Metin2.Tests.EditMode.Protocol
     public class BlockCipherEngineFactoryTests
     {
         [Test]
-        public void IsSupported_OnlyTEA()
+        public void IsSupported_TEA_RC6_IDEA()
         {
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TEA));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC6));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.IDEA));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Twofish));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Blowfish));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.SHACAL2));
