@@ -2,6 +2,11 @@
 
 Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# ile geliştirilen Android mobil istemcisi.
 
+> **Bu README'yi nasıl okumalı:** Proje adım adım, her adımı test'li ve commit'li ilerler.
+> Hikayenin özeti aşağıda; detay için `CHANGELOG.md`, tam kayıtlar için `docs/sprints/`,
+> teknik spec'ler için `docs/protocol/` dosyalarına bak. `git log --oneline` her adımı
+> ayrı commit olarak gösterir.
+
 ## Proje Durumu
 
 | Sprint | Durum | Açıklama |
@@ -9,56 +14,106 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA tamam; factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA tamam (3/13); factory + KAT altyapısı hazır |
 
-## Ne Yapıldı
+**Test: 191/191 ✅** (`dotnet test Metin2.Tests.csproj`)
 
-### Sprint 0 — Kaynak Kod Audit'i ve Protokol Keşfi
-- Workspace doğrulaması: tüm kaynak dizinler (Server C++, Client C++, DumpProto, game configs, MySQL datadir, PC client binary) mevcut
-- Server ve client source içinde auth/login/game bağlantı akışı takip edildi
-- Packet header, framing, cipher/sequence ve phase geçişleri kaynak dosya+satır referanslarıyla çıkarıldı
-- `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
-- `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game tam akışı
-- `docs/protocol/protocol-inventory.md` — 60+ CG header, 80+ GC header, GD/DG ve GG header'ları, framing kuralları
-- `docs/protocol/packet-catalog.json` — 13 bağlantı yolu paketinin makine-okunur kataloğu
+## Gelişim Hikayesi (Adım Adım)
 
-### Sprint 1 — Unity Proje Altyapısı ve Golden Byte Test'leri
-- **Unity 6 LTS (6000.0.23f1)** projesi oluşturuldu, Android build target
-- **4 Assembly Definition** ile modüler yapı:
-  - `Metin2.Core` — Logging, config, secret redaction
-  - `Metin2.Protocol` — Saf C#, **UnityEngine bağımsız** (`noEngineReferences: true`), paket codec'leri
-  - `Metin2.Network` — TCP transport, session state
-  - `Metin2.Tests` — EditMode golden byte test suite
-- **Golden Byte Test'leri** (191 test, hepsi geçiyor):
-  - Yukarıdaki 74 test (Sprint 1) +
-  - `PacketFramer` — fragmented/coalesced TCP, 0x00 padding, unknown-header drop, max-length guard (10 test)
-  - `PacketRegistry` — phase-aware dispatch, handshake-path izinleri, duplicate/validation (7 test)
-  - `TcpConnection` — loopback connect/send/receive/disconnect/graceful-close (5 test)
-  - `Dh2KeyAgreement` — RFC 5114 sabitleri, subgroup order, A↔B simetrisi, fail-closed (11 test)
-  - `CipherSuite` — 14 selector eşleşmesi, block/key uzunlukları (33 test)
-  - `CipherKeyDerivation` — el-hesaplı vektörler, fail-closed (6 test)
-  - `CipherSession` + `CtrStream` — polarity aynası, round-trip, big-endian counter (10 test)
-  - `TeaEngine` — 7 KAT vektörü + decrypt + round-trip (14 test)
-  - `Rc6Engine` — 5 KAT vektörü (16/24-byte key) + decrypt + round-trip (9 test)
-  - `IdeaEngine` — 4 KAT vektörü + 52 subkey schedule + decrypt + round-trip (9 test)
-  - `BlockCipherEngineFactory` — suite yönlendirme + TEA session round-trip (4 test)
-  - `TPacketGCHandshake` (0xff, 13 byte) — serialize/deserialize round-trip + edge cases
-  - `TPacketKeyAgreement` (0xfb, 261 byte) — serialize/deserialize + zero-padding
-  - `TPacketCGLogin3` (111, 65 byte) — serialize/deserialize + credential truncation safety
-  - `TPacketGCPhase` (0xfd) — tüm phase enum değerleri için golden test
-  - `PacketReader`/`PacketWriter` — Little-Endian I/O, fixed string, bounds checking
-  - `SecretRedactor` — credential maskeleme testleri
-- **Codec'ler**: Her paket için `Serialize`/`TryDeserialize`/`Deserialize` + hata yönetimi
-- **Security**: Secret redaction, credential'lar test fixture'larda dummy değer
+### Adım 0 — Kaynak Kod Audit'i ve Protokol Keşfi (Sprint 0)
+- Workspace doğrulandı: Server C++ source, Client C++ source, DumpProto, game config'leri, MySQL datadir, PC client binary — hepsi mevcut.
+- Auth/login/game bağlantı akışı server + eski client source içinde dosya+satır referanslarıyla takip edildi.
+- Çıktılar:
+  - `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
+  - `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game
+  - `docs/protocol/protocol-inventory.md` — 60+ CG, 80+ GC header, GD/DG/GG header'ları, framing kuralları
+  - `docs/protocol/packet-catalog.json` — 13 bağlantı paketi, makine-okunur katalog
+- Commit: `dac18f6`
+
+### Adım 1 — Unity Proje Altyapısı (Sprint 1)
+- **Unity 6 LTS (6000.0.23f1)**, Android target, 4 assembly (`Metin2.Core/Protocol/Network/Tests`).
+- `Metin2.Protocol` bilerek **UnityEngine bağımsız** (`noEngineReferences: true`) — saf C#, `dotnet test` ile editor'süz test.
+- İlk 4 paketin codec'i (`Serialize`/`TryDeserialize`/`Deserialize`):
+  `TPacketGCHandshake` (0xff, 13B), `TPacketKeyAgreement` (0xfb, 261B),
+  `TPacketCGLogin3` (111, 65B), `TPacketGCPhase` (0xfd, 2B) + `PacketReader`/`PacketWriter` (LE) + `SecretRedactor`.
+- Test: **74/74**. Commit: `dac18f6` içinde.
+
+### Adım 2 — TCP Transport, Framer, Registry (Sprint 2, bölüm 1)
+Neden: cipher'a geçmeden önce TCP'nin byte-stream doğası (fragmented/coalesced) çözülmeliydi.
+- `TcpConnection` (`Network/Transport`): `ITcpConnection` implementasyonu — send semaphore
+  (byte interleaving yok), netstandard2.1 uyumlu cancellation, idempotent disconnect/dispose.
+- `PacketLengthTable` + `PacketFramer` (`Protocol/Framing`): kaynak-doğrulanmış S2C uzunlukları
+  (0xff=13, 0xfb=261, 0xfa=4, 0xfd=2), 0x00 padding skip, unknown-header drop+sayacı,
+  65536 byte guard (`MAX_INPUT_LEN`).
+- `PacketRegistry` (`Protocol/Registry`): phase-aware dispatch — handshake paketleri yalnızca
+  HANDSHAKE phase'inde, `GC_PHASE` her phase'de geçerli.
+- Yolda bulunan hata: `AsReadOnly()` → `List` cast'i (`InvalidCastException`) — iterasyona çevrildi.
+- Test: 74 → **96/96** (+22). Commit: `0fecf40`.
+
+### Adım 3 — Cipher Çekirdek, Engine'ler Hariç (Sprint 2, bölüm 2)
+Neden: key agreement olmadan canlı sunucuyla handshake tamamlanamaz; önce kaynak iz sürüldü.
+- İz sürme (`docs/protocol/cipher-spec.md`): `cipher.cpp/h`, `desc.cpp:704-741` (server polarity **false**),
+  `input.cpp:556-583` (önce 0xfa + flush, sonra cipher), `NetStream.cpp:921-928` (client polarity **true**),
+  `PhaseHandShake.cpp:202-258`, vendored CryptoPP header'ları (DH2, 13 cipher'ın block/key uzunlukları).
+- Implementasyon (`Protocol/Security`): `DiffieHellmanGroup` (RFC 5114 sabitleri),
+  `Dh2KeyAgreement` (fail-closed `TryAgree`), `CipherSuite` (14 selector), `CipherKeyDerivation`
+  (`SetUp` portu — el-hesaplı vektörlerle testli), `CipherSession` (polarity aynası),
+  `CtrStream` (big-endian CTR; CryptoPP karşılaştırması UNVERIFIED).
+- Test: 96 → **155/155** (+59). Commit: `a3157b5`.
+
+### Adım 4 — İzlenebilirlik Altyapısı
+Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebilir olmalı.
+- `CHANGELOG.md` (her değişiklik sprint'e bağlı), `docs/sprints/SPRINT_02/03` kayıtları,
+  `docs/decisions/ADR-0002` (engine stratejisi: port-vs-bağımlılık → port).
+- Commit: `61c4e54`.
+
+### Adım 5 — TEA Engine (Sprint 3, ilk engine)
+- Orijinal TEA (XTEA değil), 32 cycle; 7 KAT (Wheeler–Needham + bağımsız set) + decrypt + round-trip.
+- `BlockCipherEngineFactory` + `CipherEngineNotImplementedException` (desteklenmeyen suite açık hata verir).
+- Yolda bulunan hata: `(1,1)` word çifti `00000001_00000001` okunmalıydı, testte `…0001` yazılmıştı — test düzeltildi, engine doğruydu.
+- Test: 155 → **173/173** (+18). Commit: `cdc83a0`.
+
+### Adım 6 — RC6 + IDEA Engine'leri (Sprint 3, devam)
+- **RC6-32/20/16**: 5 KAT (RC6 paper + IETF draft; 16/24-byte key). Kritik bulgu: RC6 word'leri
+  **little-endian** paketler (paper §2) — TEA/IDEA big-endian. Değişken anahtar boyu (16/24/32) eklendi.
+- **IDEA** (8 round): 4 KAT + 52 subkey schedule testi (HAC Tablo 7.12). Üç gerçek bug avlandı:
+  1. `Mul` uint taşması (`0x10000×0x10000`) → `ulong`.
+  2. IDEA swap'i round'larda değil **output transform**'dadır — 8 round'un tamamı HAC ile el/Python iziyle kanıtlandı; decrypt explicit inverse'a çevrildi.
+  3. Testin beklenen-schedule dizisi 54 eleman yazılmıştı (52 olmalı) + indeks kayması — test düzeltildi, engine doğruydu.
+- Strateji notları `SPRINT_03`'e işlendi: PowerShell'den ağ YOK (tablo machine-transfer iptal),
+  RC5 CryptoPP default'u 16 round (Rivest vektörleri /12/16 — uymaz), kalan 10 engine'in tablo ihtiyaçları.
+- Test: 173 → **191/191** (+18). Commitler: `862fea5` (feat) + `b03187c` (docs).
+
+## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
+
+| Alan | Test | Kapsam |
+|---|---|---|
+| Handshake codec | `PacketGCHandshakeTests` | Golden byte, round-trip, truncation, header check |
+| KeyAgreement codec | `PacketKeyAgreementTests` | 261B serialize, zero-padding |
+| Login3 codec | `PacketCGLogin3Tests` | Credential truncation safety |
+| Phase codec | `PacketGCPhaseTests` | Tüm phase enum değerleri |
+| Buffer | `PacketReaderWriterTests` | LE I/O, fixed string, bounds |
+| Secret | `SecretRedactorTests` | Credential maskeleme |
+| Framer (10) | `PacketFramerTests` | Fragmented/coalesced, padding, unknown drop, max-length |
+| Registry (7) | `PacketRegistryTests` | Phase izinleri, duplicate/validation |
+| Transport (5) | `TcpConnectionTests` | Loopback connect/send/receive/disconnect/close |
+| DH2 (11) | `Dh2KeyAgreementTests` | RFC 5114, `g^q==1`, A↔B simetrisi, fail-closed |
+| Suite (32) | `CipherSuiteTests` | 14 selector, block/key uzunlukları |
+| Derivation (6) | `CipherKeyDerivationTests` | El-hesaplı vektörler, fail-closed |
+| Session/CTR (10) | `CipherSessionTests` | Polarity aynası, round-trip, counter |
+| TEA (14) | `TeaEngineTests` | 7 KAT + decrypt + round-trip |
+| RC6 (9) | `Rc6EngineTests` | 5 KAT + decrypt + round-trip |
+| IDEA (9) | `IdeaEngineTests` | 4 KAT + schedule + decrypt + round-trip |
+| Factory (4) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
 
 ## Mimari
 
 ```
 Unity Client (Android)
     |
-    | TCP (Little-Endian, #pragma pack(1))
+    | TCP (Little-Endian, #pragma pack(1)) → PacketFramer → PacketRegistry
     v
-Auth Core (handshake → key agreement → PHASE_AUTH)
+Auth Core (0xff handshake → 0xfb key agreement → DH2 → CTR → PHASE_AUTH)
     |
     v
 Channel/Game Core (PHASE_LOGIN → PHASE_SELECT → PHASE_GAME)
@@ -78,17 +133,25 @@ Assets/Scripts/
 │   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O)
 │   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketGCPhaseCodec
 │   ├── Constants/  — PacketHeaders, PhaseType
-│   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException
+│   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
+│   │                  CipherEngineNotImplementedException
 │   ├── Framing/    — PacketLengthTable, PacketFramer (TCP stream → frame)
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
-│   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation, CipherSession, CtrStream
+│   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
+│   │                  CipherSession, CtrStream
+│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, BlockCipherEngineFactory (KAT'li; +10 sırada)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
-    └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests, PacketGCPhaseTests, PacketReaderWriterTests
+    ├── Network/    — TcpConnectionTests
+    └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests,
+                       PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
+                       PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
+                       CipherKeyDerivationTests, CipherSessionTests, TeaEngineTests,
+                       Rc6EngineTests, IdeaEngineTests, BlockCipherEngineFactoryTests
 ```
 
 ## Test
@@ -105,15 +168,29 @@ dotnet test Metin2.Tests.csproj
 
 ## Dokümanlar
 
+- [`CHANGELOG.md`](CHANGELOG.md) — Değişiklik günlüğü (sprint'e bağlı)
+- [`docs/sprints/SPRINT_02-protocol-core.md`](docs/sprints/SPRINT_02-protocol-core.md) — Sprint 2 kaydı
+- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (3/13 ✅)
+- [`docs/decisions/ADR-0002-cipher-engine-strategy.md`](docs/decisions/ADR-0002-cipher-engine-strategy.md) — Port kararı
+- [`docs/protocol/cipher-spec.md`](docs/protocol/cipher-spec.md) — Cipher iz sürme (kaynak referanslı)
 - [`AGENT_DEVELOPMENT_GUIDE.md`](AGENT_DEVELOPMENT_GUIDE.md) — AI agent geliştirme rehberi ve kurallar
 - [`docs/architecture.md`](docs/architecture.md) — Workspace haritası ve build toolchain'leri
-- [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı (kaynak referanslı)
+- [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — Makine-okunur paket kataloğu
 
+## Bilinen Eksikler (UNVERIFIED)
+
+- DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
+- CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
+- 10 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
+- GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
+
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (devam ediyor): TEA + RC6 + IDEA portları + KAT testleri + factory tamam (`docs/sprints/SPRINT_03-cipher-engines.md`). Kalan 10 engine aynı pattern'le (tablo-tabanlı olanlar için tablo stratejisi sprint kaydında). Sonraki hedef: engine'ler bitince canlı sunucuya bağlanıp handshake + key agreement tamamlamak.
+**Sprint 3 — Cipher Engine'leri** (devam): RC5 (round-parametrik) veya SHACAL-2 (küçük tablo) sırada.
+Engine'ler bitince: canlı sunucuya handshake → key agreement → ilk şifreli paket decode
+(bu adım yukarıdaki UNVERIFIED'ları da kapatır).
 
 ## Kurallar
 
