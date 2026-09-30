@@ -18,7 +18,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 12 | TEA | TEA (orijinal, XTEA değil) | 8 | Wheeler–Needham + bağımsız vektör seti (7 vektör) | ✅ Tamamlandı |
 | 1 | RC6 | RC6-32/20/16 (little-endian packing!) | 16 | RC6 paper appendix + IETF draft (5 vektör, 16/24-bit anahtar) | ✅ Tamamlandı |
 | 6 | IDEA | IDEA 8 round (swap output transform'da!) | 8 | HAC Tablo 7.12 (4 vektör + 52 subkey) | ✅ Tamamlandı |
-| 11 | Blowfish | Blowfish | 8 | Schneier KAT'leri | ⬜ Sırada (1042 word tablo gerekli) |
+| 11 | Blowfish | Blowfish (big-endian, 16 round) | 8 | Schneier/Eric Young resmi vektörleri (6 ECB + 4 set_key, değişken key dahil) | ✅ Tamamlandı |
 | 7 | TripleDES | DES-EDE2 | 8 | NIST SP 800-67 | ⬜ Sırada (DES S-box tabloları gerekli) |
 | 3 | Twofish | Twofish | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (q-box tabloları gerekli) |
 | 4 | Serpent | Serpent | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tabloları gerekli) |
@@ -54,6 +54,14 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   IDEA'daki "Python izi" presedenti). C# rotation-form, Python shift-form — farklı kod
   yolları, aynı spec. Yan bulgu: `Buffer.BlockCopy` → `Metin2.Protocol.Buffer` ile
   çakışır, `System.Buffer` net yazılır.
+- **Blowfish dersleri (ilk tablolu engine)**: P[18]+S[1024] OpenSSL `bf_pi.h`'den alındı
+  (Eric Young tabloları = Schneier pi digitleri; baş word'ler bağımsız mirror'la çapraz
+  kontrol edildi, tamamı 10 KAT ile kanıtlandı). Transkripsiyon sırasında bir satır
+  bozuldu (`0xEBCDAF0C, 0x7B3E89A0` tek satırda birleşmişti) — derleme hatası olarak
+  yakalandı, KAT öncesi düzeltildi. set_key vektörleri (key 1..24 byte) değişken-key
+  yolunu da kanıtlar; k[16] wire-size resmi vektördür. Factory negatif-test örneği
+  `Blowfish` → `MARS` olarak değişti (tekrarlayan pattern: portlanan suite negatif
+  örnekten çıkarılır).
 - **Tablo stratejisi**: PowerShell'den ağ erişimi YOK (doğrulandı). Tablo-tabanlı
   engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
   transcription yok) + SHA256 provenance kaydı + KAT doğrulaması. KAT geçmeden tablo
