@@ -27,7 +27,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 8 | Camellia | Camellia | 16 | RFC 3713 / NESSIE | ⬜ Sırada (S-box GF(2^8) matematiğinden türetilebilir) |
 | 9 | SEED | SEED | 16 | RFC 4269 / KISA | ⬜ Sırada (S-box tabloları gerekli) |
 | 10 | RC5 | RC5-32/16/16 (CryptoPP default 16 round; little-endian!) | 8 | Rivest zincir vektörleri, r=12 (5 vektör, word→LE çevrimli) | ✅ Tamamlandı |
-| 13 | SHACAL2 | SHACAL-2 | 32 | NESSIE submission vektörleri | ⬜ Sırada (64 word K sabiti gerekli, küçük) |
+| 13 | SHACAL2 | SHACAL-2 (big-endian, SHA-256 round fn, feedforward yok) | 32 | NESSIE submission via CryptoPP TestVectors (3×512-bit) + Python çapraz-kontrol (3×128-bit) | ✅ Tamamlandı |
 
 Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
 
@@ -46,6 +46,14 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   karşılığı yazılır (`21A5DBEE154B8F6D`). İlk denemede BE string kullanıldı, 6 test
   patladı; düzeltme testte yapıldı, engine doğruydu. Transkripsiyon çift gözle kontrol
   edilir (V3 word'ünde son-iki-byte takası da yakalandı).
+- **SHACAL-2 dersleri**: CryptoPP portu birebir alındı (`shacal2.cpp` + `misc.h`
+  `GetUserKey` zero-padding + `TestVectors/shacal2.txt` — hepsi webfetch ile çekildi).
+  K[64] = SHA-256 sabitleri (FIPS 180-4 §4.2.2 ile çift kaynaklı). Kısa key için yayınlanmış
+  vektör YOK (tüm NESSIE vektörleri 512-bit) → 16-byte yolu bağımsız Python referans
+  portuyla çapraz-kontrol edildi (önce Python NESSIE'de doğrulandı, sonra C# Python'la;
+  IDEA'daki "Python izi" presedenti). C# rotation-form, Python shift-form — farklı kod
+  yolları, aynı spec. Yan bulgu: `Buffer.BlockCopy` → `Metin2.Protocol.Buffer` ile
+  çakışır, `System.Buffer` net yazılır.
 - **Tablo stratejisi**: PowerShell'den ağ erişimi YOK (doğrulandı). Tablo-tabanlı
   engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
   transcription yok) + SHA256 provenance kaydı + KAT doğrulaması. KAT geçmeden tablo

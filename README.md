@@ -14,9 +14,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA + RC5 tamam (4/13); factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA + RC5 + SHACAL-2 tamam (5/13); factory + KAT altyapısı hazır |
 
-**Test: 201/201 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 214/214 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -93,6 +93,16 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 - r=16/r=12 çıktı farkı assert'lenir (round parametresinin canlı olduğu kanıtı).
 - Test: 191 → **201/201** (+10: RC5 9, factory 1).
 
+### Adım 8 — SHACAL-2 Engine (Sprint 3, devam)
+- CryptoPP `shacal2.cpp` birebir port: big-endian, SHA-256 round fonksiyonu (feedforward yok),
+  key schedule = SHA-256 message expansion + round-sabiti (fused, `UncheckedSetKey` sırasıyla).
+  `GetUserKey` zero-padding (`misc.h`) doğrulandı → key 16..64 byte desteklenir (wire'da hep 16).
+- KAT: 3 NESSIE 512-bit vektörü (`TestVectors/shacal2.txt`) + 3× 16-byte Python çapraz-kontrol
+  (yayınlanmış kısa-key vektörü yok; Python portu önce NESSIE'de doğrulandı — IDEA presedenti).
+- Yan bulgu: `Buffer.BlockCopy` proje `Buffer` namespace'iyle çakışır → `System.Buffer` net yazıldı;
+  factory negatif-test örneği `SHACAL2` → `Serpent` olarak değişti.
+- Test: 201 → **214/214** (+13: SHACAL-2 12, factory 1).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -114,7 +124,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | RC6 (9) | `Rc6EngineTests` | 5 KAT + decrypt + round-trip |
 | IDEA (9) | `IdeaEngineTests` | 4 KAT + schedule + decrypt + round-trip |
 | RC5 (9) | `Rc5EngineTests` | 5 KAT (r=12) + decrypt + r=16 round-trip |
-| Factory (5) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
+| SHACAL-2 (12) | `Shacal2EngineTests` | 3 NESSIE KAT + 3 Python çapraz-kontrol + decrypt + round-trip |
+| Factory (6) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
 
 ## Mimari
 
@@ -149,7 +160,7 @@ Assets/Scripts/
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
-│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, BlockCipherEngineFactory (KAT'li; +9 sırada)
+│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlockCipherEngineFactory (KAT'li; +8 sırada)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
@@ -161,7 +172,7 @@ Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
                        CipherKeyDerivationTests, CipherSessionTests, TeaEngineTests,
-                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, BlockCipherEngineFactoryTests
+                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlockCipherEngineFactoryTests
 ```
 
 ## Test
@@ -174,13 +185,13 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 201/201 başarılı ✅**
+**Son test sonucu: 214/214 başarılı ✅**
 
 ## Dokümanlar
 
 - [`CHANGELOG.md`](CHANGELOG.md) — Değişiklik günlüğü (sprint'e bağlı)
 - [`docs/sprints/SPRINT_02-protocol-core.md`](docs/sprints/SPRINT_02-protocol-core.md) — Sprint 2 kaydı
-- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (4/13 ✅)
+- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (5/13 ✅)
 - [`docs/decisions/ADR-0002-cipher-engine-strategy.md`](docs/decisions/ADR-0002-cipher-engine-strategy.md) — Port kararı
 - [`docs/protocol/cipher-spec.md`](docs/protocol/cipher-spec.md) — Cipher iz sürme (kaynak referanslı)
 - [`AGENT_DEVELOPMENT_GUIDE.md`](AGENT_DEVELOPMENT_GUIDE.md) — AI agent geliştirme rehberi ve kurallar
@@ -193,12 +204,12 @@ dotnet test Metin2.Tests.csproj
 
 - DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
 - CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
-- 9 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
+- 8 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
 - GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (devam): SHACAL-2 (küçük tablo, 64 word K sabiti) sırada.
+**Sprint 3 — Cipher Engine'leri** (devam): Blowfish sırada (Schneier KAT'leri; 1042 word tablo webfetch machine-transfer ile).
 Engine'ler bitince: canlı sunucuya handshake → key agreement → ilk şifreli paket decode
 (bu adım yukarıdaki UNVERIFIED'ları da kapatır).
 

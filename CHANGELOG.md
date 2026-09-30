@@ -14,8 +14,11 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - IDEA engine (`CipherSuite.IDEA`): HAC Tablo 7.12 (4 vektör + 52 subkey schedule testi).
 - RC5 engine (`CipherSuite.RC5`): Rivest zincir vektörleri, r=12 (5 vektör, word→LE çevrimli);
   round-parametrik (default 16 = CryptoPP `VariableRounds<16>`).
-- `BlockCipherEngineFactory`: TEA + RC6 + IDEA + RC5; diğerleri `CipherEngineNotImplementedException`.
-- Test: 155 → 201 (+46: TEA 14, RC6 9, IDEA 9, RC5 9, factory 5).
+- SHACAL-2 engine (`CipherSuite.SHACAL2`): CryptoPP birebir port (big-endian, K=sHA-256
+  sabitleri); NESSIE KAT'leri (3×512-bit) + Python çapraz-kontrol (3×128-bit, kısa-key
+  padding yolu); key 16..64 byte (CryptoPP `VariableKeyLength<16,16,64>`).
+- `BlockCipherEngineFactory`: TEA + RC6 + IDEA + RC5 + SHACAL-2; diğerleri `CipherEngineNotImplementedException`.
+- Test: 155 → 214 (+59: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, factory 6).
 
 ## [2026-09-29] — Sprint 2: cipher çekirdek (bölüm 2)
 ### Eklenen
