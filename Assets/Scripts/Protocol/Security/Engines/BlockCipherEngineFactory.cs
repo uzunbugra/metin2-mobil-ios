@@ -18,7 +18,8 @@ namespace Metin2.Protocol.Security.Engines
                 || suite == CipherSuite.IDEA
                 || suite == CipherSuite.RC5
                 || suite == CipherSuite.SHACAL2
-                || suite == CipherSuite.Blowfish;
+                || suite == CipherSuite.Blowfish
+                || suite == CipherSuite.TripleDES;
         }
 
         public static IBlockCipherEngine Create(CipherSuite suite, byte[] key)
@@ -37,6 +38,8 @@ namespace Metin2.Protocol.Security.Engines
                     return new Shacal2Engine(key);
                 case CipherSuite.Blowfish:
                     return new BlowfishEngine(key);
+                case CipherSuite.TripleDES:
+                    return new TripleDesEngine(key);
                 default:
                     throw new CipherEngineNotImplementedException(CipherSuiteTable.GetName(suite));
             }
