@@ -16,7 +16,8 @@ namespace Metin2.Protocol.Security.Engines
             return suite == CipherSuite.TEA
                 || suite == CipherSuite.RC6
                 || suite == CipherSuite.IDEA
-                || suite == CipherSuite.RC5;
+                || suite == CipherSuite.RC5
+                || suite == CipherSuite.SHACAL2;
         }
 
         public static IBlockCipherEngine Create(CipherSuite suite, byte[] key)
@@ -31,6 +32,8 @@ namespace Metin2.Protocol.Security.Engines
                     return new IdeaEngine(key);
                 case CipherSuite.RC5:
                     return new Rc5Engine(key);
+                case CipherSuite.SHACAL2:
+                    return new Shacal2Engine(key);
                 default:
                     throw new CipherEngineNotImplementedException(CipherSuiteTable.GetName(suite));
             }

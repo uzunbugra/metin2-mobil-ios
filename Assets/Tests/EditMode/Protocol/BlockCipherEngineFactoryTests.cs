@@ -9,15 +9,23 @@ namespace Metin2.Tests.EditMode.Protocol
     public class BlockCipherEngineFactoryTests
     {
         [Test]
-        public void IsSupported_TEA_RC6_IDEA_RC5()
+        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2()
         {
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TEA));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC6));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.IDEA));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC5));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.SHACAL2));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Twofish));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Blowfish));
-            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.SHACAL2));
+            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Serpent));
+        }
+
+        [Test]
+        public void Create_SHACAL2_ReturnsWorkingEngine()
+        {
+            IBlockCipherEngine engine = BlockCipherEngineFactory.Create(CipherSuite.SHACAL2, new byte[16]);
+            Assert.AreEqual(32, engine.BlockSize);
         }
 
         [Test]
