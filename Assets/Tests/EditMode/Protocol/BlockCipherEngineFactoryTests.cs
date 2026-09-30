@@ -9,7 +9,7 @@ namespace Metin2.Tests.EditMode.Protocol
     public class BlockCipherEngineFactoryTests
     {
         [Test]
-        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES_Twofish_Serpent_MARS()
+        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES_Twofish_Serpent_MARS_CAST256_Camellia()
         {
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TEA));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC6));
@@ -21,9 +21,23 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Twofish));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Serpent));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.MARS));
-            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.CAST256));
-            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Camellia));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.CAST256));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Camellia));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.SEED));
+        }
+
+        [Test]
+        public void Create_Camellia_ReturnsWorkingEngine()
+        {
+            IBlockCipherEngine engine = BlockCipherEngineFactory.Create(CipherSuite.Camellia, new byte[16]);
+            Assert.AreEqual(16, engine.BlockSize);
+        }
+
+        [Test]
+        public void Create_CAST256_ReturnsWorkingEngine()
+        {
+            IBlockCipherEngine engine = BlockCipherEngineFactory.Create(CipherSuite.CAST256, new byte[16]);
+            Assert.AreEqual(16, engine.BlockSize);
         }
 
         [Test]
@@ -86,8 +100,8 @@ namespace Metin2.Tests.EditMode.Protocol
         public void Create_UnportedSuite_ThrowsNamingTheSuite()
         {
             var ex = Assert.Throws<CipherEngineNotImplementedException>(
-                () => BlockCipherEngineFactory.Create(CipherSuite.CAST256, new byte[16]));
-            StringAssert.Contains("CAST-256", ex.Message);
+                () => BlockCipherEngineFactory.Create(CipherSuite.SEED, new byte[16]));
+            StringAssert.Contains("SEED", ex.Message);
         }
 
         [Test]
