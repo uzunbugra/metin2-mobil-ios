@@ -14,9 +14,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES + Twofish tamam (8/13); factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den 9'u tamam (TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES + Twofish + Serpent); factory + KAT altyapısı hazır |
 
-**Test: 253/253 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 272/272 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -132,6 +132,17 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   hafızayı yendi (doğrusu 9F589F5CF6122C32…).
 - Test: 241 → **253/253** (+12: Twofish 11, factory 1).
 
+### Adım 12 — Serpent Engine (Sprint 3, devam; en zorlu debug)
+- Submission-spec classic yapı (LE prekey recurrence + 33 subkey grubu + LT/ILT) ile
+  Osvik bitslice S-box'lar (nibble-paralel, 8 fwd + 8 inv). Key 16/24/32.
+- KAT: 5 Botan (128-bit, key=0) + 3 LTC single-bit 16-byte + 1 Botan 192-bit +
+  1 LTC 24-bit + 1 Botan 256-bit + 1 LTC 32-bit + decrypt + round-trip (16/24/32).
+- Üç bug, üç teknik: (1) S7/I3 output-mapping slip'leri — Python'a aktarılan 16 gövde
+  Botan tablolarıyla karşılaştırıldı, doğru mapping'ler brute-force ile kanıtlandı;
+  (2) schedule off-by-8 (recurrence çıktısı w[8+j]'ye paketlenir; round-trip geçtiği halde
+  KAT patladı — round-trip ≠ doğruluk!); (3) test hex'lerinde düşen trailing char'lar.
+- Test: 253 → **272/272** (+19: Serpent 18, factory 1).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -157,7 +168,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | Blowfish (15) | `BlowfishEngineTests` | 6 ECB + 4 set_key KAT + decrypt + round-trip |
 | TripleDES (10) | `TripleDesEngineTests` | NIST degeneracy + Destest + 2-key + Python + decrypt |
 | Twofish (11) | `TwofishEngineTests` | 5 zincir KAT + decrypt + round-trip (16/24/32) |
-| Factory (9) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
+| Serpent (18) | `SerpentEngineTests` | 5 Botan + 3 LTC-16 + 2×192 + 2×256 + decrypt + round-trip |
+| Factory (10) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
 
 ## Mimari
 
@@ -192,7 +204,7 @@ Assets/Scripts/
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
-│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, BlockCipherEngineFactory (KAT'li; +5 sırada)
+│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, BlockCipherEngineFactory (KAT'li; +4 sırada)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
@@ -204,7 +216,7 @@ Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
                        CipherKeyDerivationTests, CipherSessionTests, TeaEngineTests,
-                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlowfishEngineTests, TripleDesEngineTests, TwofishEngineTests, BlockCipherEngineFactoryTests
+                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlowfishEngineTests, TripleDesEngineTests, TwofishEngineTests, SerpentEngineTests, BlockCipherEngineFactoryTests
 ```
 
 ## Test
@@ -217,13 +229,13 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 253/253 başarılı ✅**
+**Son test sonucu: 272/272 başarılı ✅**
 
 ## Dokümanlar
 
 - [`CHANGELOG.md`](CHANGELOG.md) — Değişiklik günlüğü (sprint'e bağlı)
 - [`docs/sprints/SPRINT_02-protocol-core.md`](docs/sprints/SPRINT_02-protocol-core.md) — Sprint 2 kaydı
-- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (8/13 ✅)
+- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (9/13 ✅)
 - [`docs/decisions/ADR-0002-cipher-engine-strategy.md`](docs/decisions/ADR-0002-cipher-engine-strategy.md) — Port kararı
 - [`docs/protocol/cipher-spec.md`](docs/protocol/cipher-spec.md) — Cipher iz sürme (kaynak referanslı)
 - [`AGENT_DEVELOPMENT_GUIDE.md`](AGENT_DEVELOPMENT_GUIDE.md) — AI agent geliştirme rehberi ve kurallar
@@ -236,12 +248,12 @@ dotnet test Metin2.Tests.csproj
 
 - DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
 - CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
-- 5 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
+- 4 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
 - GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (devam): Serpent sırada (AES aday KAT'leri; S-box tabloları webfetch machine-transfer ile).
+**Sprint 3 — Cipher Engine'leri** (devam): MARS sırada (AES adayı; S-box tablosu + NESSIE/Botan KAT'leri ile).
 Engine'ler bitince: canlı sunucuya handshake → key agreement → ilk şifreli paket decode
 (bu adım yukarıdaki UNVERIFIED'ları da kapatır).
 

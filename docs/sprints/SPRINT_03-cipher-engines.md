@@ -21,7 +21,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 11 | Blowfish | Blowfish (big-endian, 16 round) | 8 | Schneier/Eric Young resmi vektörleri (6 ECB + 4 set_key, değişken key dahil) | ✅ Tamamlandı |
 | 7 | TripleDES | DES-EDE2 (FIPS 46-3 textbook core) | 8 | NIST SP 800-17 degeneracy + Rivest Destest + PyCryptodome 2-key + Python | ✅ Tamamlandı |
 | 3 | Twofish | Twofish (RS schedule, key-dependent S-box, LE) | 16 | Botan chaining KAT'leri (5×128-bit, fresh schedule each) | ✅ Tamamlandı |
-| 4 | Serpent | Serpent | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tabloları gerekli) |
+| 4 | Serpent | Serpent (Osvik S-box + LT, LE, 32 round) | 16 | Botan (5) + LTC single-bit (3+2+1) KAT'leri | ✅ Tamamlandı |
 | 2 | MARS | MARS | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tablosu gerekli) |
 | 5 | CAST256 | CAST-256 | 16 | RFC 2612 | ⬜ Sırada (S-box tabloları gerekli) |
 | 8 | Camellia | Camellia | 16 | RFC 3713 / NESSIE | ⬜ Sırada (S-box GF(2^8) matematiğinden türetilebilir) |
@@ -69,6 +69,16 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   yok. Key 16/24/32 (CryptoPP aralığı); 24/32 yolu round-trip ile kaplı.
   Not: E_0(0)=9F589F5CF6122C32… — hafızadaki B7220BDC varyantı farklı bir teste aitmiş;
   kanıt (literal port + KAT) hafızayı yendi.
+- **Serpent dersleri (en zorlu debug)**: ÜÇ ayrı bug, üç ayrı teknikle avlandı —
+  1. S7/I3 output-mapping slip'leri: 16 S-box gövdesi Python'a aktarılıp Botan S-box
+     tablolarıyla karşılaştırıldı (S0–S6 birebir, S7/I3 hatalı) → brute-force ile doğru
+     mapping'ler kanıtlandı (S7: r2/r4/r3/r0, I3: r3/r0/r2/r1). Boolean gövdeler doğruydu.
+  2. Schedule off-by-8: recurrence çıktısı seed'in ÜSTÜNE (w[8+j], sabit j) paketlenir;
+     gruplar w[8+4g..] okur — w[4g..] okumak grup 0-1'e ham key sokar. Round-trip GEÇER
+     (self-consistent) ama KAT'ler patlar — round-trip ≠ doğruluk kanıtı!
+  3. Test string'lerinde düşen trailing char'lar (Byte[15] hatası) — hex uzunluğu gözle.
+  Debug altyapısı: C# gövdelerini parse edip çalıştıran Python script'i (transkripsiyonsuz
+  doğrulama) + Botan tabloları hakem. Factory throw-testi örneği `Serpent` → `MARS`.
 - **TripleDES dersleri**: yayınlanmış 2-key ECB vektör dosyası YOK (CryptoPP TestVectors'ta
   DES yok — validat.cpp hardcoded; SP 800-67 B.1 üç-key). Strateji: çekirdek degeneracy
   ile kanıtlandı (EDE2(K‖K)==DES(K) → NIST SP 800-17 A + B.1 resmi vektörleri) + Rivest
