@@ -42,8 +42,12 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   (BouncyCastle `CamelliaEngine.cs` == CryptoPP `camellia.cpp` SP); enc+dec schedule
   ayrı kurulum; RFC 3713 Ek A KAT'leri (128/192/256-bit) + NESSIE zero-key;
   key 16/24/32 byte (`VariableKeyLength<16,16,32,8>`).
-- `BlockCipherEngineFactory`: 12 suite (TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES + Twofish + Serpent + MARS + CAST-256 + Camellia); diğerleri `CipherEngineNotImplementedException`.
-- Test: 155 → 308 (+153: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, Blowfish 15, TripleDES 10, Twofish 11, Serpent 18, MARS 12, CAST-256 11, Camellia 10, factory 13).
+- SEED engine (`CipherSuite.SEED`): CryptoPP `seed.cpp` birebir port (SS0..SS3 maskeli
+  G-fonksiyonu, iç-içe G katmanlı Feistel, BE); s0/s1/kc machine-transfer;
+  RFC 4269 KAT'leri via `seed.txt` (4 vektör, ilk denemede geçti); key sabit 16 byte
+  (`FixedKeyLength<16>`); decrypt pre-reversed schedule.
+- `BlockCipherEngineFactory`: 13 suite (tümü portlu); bilinmeyen selector `CipherEngineNotImplementedException` (fail-closed).
+- Test: 155 → 318 (+163: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, Blowfish 15, TripleDES 10, Twofish 11, Serpent 18, MARS 12, CAST-256 11, Camellia 10, SEED 9, factory 14).
 
 ## [2026-09-29] — Sprint 2: cipher çekirdek (bölüm 2)
 ### Eklenen

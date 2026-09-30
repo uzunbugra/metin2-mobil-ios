@@ -14,9 +14,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den 12'si tamam (sadece SEED kaldı); factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | ✅ Tamamlandı | 13 engine'in 13'ü tamam + factory + KAT altyapısı |
 
-**Test: 308/308 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 318/318 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -179,6 +179,15 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 - Factory negatif-test örneği `Camellia` → `SEED` (son kalan).
 - Test: 297 → **308/308** (+11: Camellia 10, factory 1).
 
+### Adım 16 — SEED Engine (Sprint 3, son engine — 13/13 ✅)
+- CryptoPP `seed.cpp` birebir port (SS0..SS3 maskeli G + iç-içe G katmanlı Feistel,
+  BE); s0/s1/kc machine-transfer. Key sabit 16 byte (`FixedKeyLength<16>`).
+  Decrypt pre-reversed schedule (CryptoPP DECRYPTION aynası).
+- KAT: 4 RFC 4269 vektörü (`seed.txt`) **ilk denemede geçti** + decrypt + round-trip.
+- Tüm suite'ler portlu olduğu için factory negatif-testi out-of-range selector'a
+  çevrildi (`(CipherSuite)99` → "Unknown", fail-closed kanıtı).
+- Test: 308 → **318/318** (+10: SEED 9, factory 1). **Sprint 3 epic tamam.**
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -208,7 +217,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | MARS (12) | `MarsEngineTests` | 6 CryptoPP KAT + decrypt + round-trip (16/24/56) |
 | CAST-256 (11) | `Cast256EngineTests` | 3 RFC 2612 KAT (128/192/256) + decrypt + round-trip (16/20/24/28/32) |
 | Camellia (10) | `CamelliaEngineTests` | 3 RFC 3713 KAT + NESSIE zero-key + decrypt + round-trip (16/24/32) |
-| Factory (13) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
+| SEED (9) | `SeedEngineTests` | 4 RFC 4269 KAT + decrypt + round-trip |
+| Factory (14) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip, unknown-selector fail-closed |
 
 ## Mimari
 
@@ -243,7 +253,7 @@ Assets/Scripts/
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
-│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, BlockCipherEngineFactory (KAT'li; +1 sırada)
+│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
@@ -255,7 +265,7 @@ Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
                        CipherKeyDerivationTests, CipherSessionTests, TeaEngineTests,
-                        Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlowfishEngineTests, TripleDesEngineTests, TwofishEngineTests, SerpentEngineTests, MarsEngineTests, Cast256EngineTests, CamelliaEngineTests, BlockCipherEngineFactoryTests
+                        Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlowfishEngineTests, TripleDesEngineTests, TwofishEngineTests, SerpentEngineTests, MarsEngineTests, Cast256EngineTests, CamelliaEngineTests, SeedEngineTests, BlockCipherEngineFactoryTests
 ```
 
 ## Test
@@ -268,13 +278,13 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 308/308 başarılı ✅**
+**Son test sonucu: 318/318 başarılı ✅**
 
 ## Dokümanlar
 
 - [`CHANGELOG.md`](CHANGELOG.md) — Değişiklik günlüğü (sprint'e bağlı)
 - [`docs/sprints/SPRINT_02-protocol-core.md`](docs/sprints/SPRINT_02-protocol-core.md) — Sprint 2 kaydı
-- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (12/13 ✅)
+- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (13/13 ✅ tamamlandı)
 - [`docs/decisions/ADR-0002-cipher-engine-strategy.md`](docs/decisions/ADR-0002-cipher-engine-strategy.md) — Port kararı
 - [`docs/protocol/cipher-spec.md`](docs/protocol/cipher-spec.md) — Cipher iz sürme (kaynak referanslı)
 - [`AGENT_DEVELOPMENT_GUIDE.md`](AGENT_DEVELOPMENT_GUIDE.md) — AI agent geliştirme rehberi ve kurallar
@@ -287,13 +297,11 @@ dotnet test Metin2.Tests.csproj
 
 - DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
 - CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
-- 1 cipher engine kaldı: SEED (RFC 4269 / KISA; S-box tabloları gerekli)
 - GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (son): SEED sırada (RFC 4269 / KISA KAT'leri; S-box tabloları machine-transfer ile). Sonrası: canlı sunucuya handshake → key agreement → ilk şifreli paket decode.
-Engine'ler bitince: canlı sunucuya handshake → key agreement → ilk şifreli paket decode
+**Canlı handshake**: 13 engine tamam — sırada canlı sunucuya handshake → key agreement → ilk şifreli paket decode
 (bu adım yukarıdaki UNVERIFIED'ları da kapatır).
 
 ## Kurallar

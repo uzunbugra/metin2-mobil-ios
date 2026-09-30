@@ -25,7 +25,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 2 | MARS | MARS (IBM tweak'li schedule, E-fonksiyon, LE) | 16 | CryptoPP mars.txt KAT'leri (5×128 + 1×192-bit) | ✅ Tamamlandı |
 | 5 | CAST256 | CAST-256 | 16 | RFC 2612 Appendix A (128/192/256-bit) | ✅ Tamamlandı |
 | 8 | Camellia | Camellia | 16 | RFC 3713 Ek A (128/192/256-bit) + NESSIE zero-key | ✅ Tamamlandı |
-| 9 | SEED | SEED | 16 | RFC 4269 / KISA | ⬜ Sırada (S-box tabloları gerekli) |
+| 9 | SEED | SEED | 16 | RFC 4269 via CryptoPP TestVectors/seed.txt (4 vektör) | ✅ Tamamlandı |
 | 10 | RC5 | RC5-32/16/16 (CryptoPP default 16 round; little-endian!) | 8 | Rivest zincir vektörleri, r=12 (5 vektör, word→LE çevrimli) | ✅ Tamamlandı |
 | 13 | SHACAL2 | SHACAL-2 (big-endian, SHA-256 round fn, feedforward yok) | 32 | NESSIE submission via CryptoPP TestVectors (3×512-bit) + Python çapraz-kontrol (3×128-bit) | ✅ Tamamlandı |
 
@@ -114,6 +114,13 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   düzeltildi, hepsi geçti. Ders: beklenen hex'ler DAİMA kaynaktan kopyalanır,
   uzunluk gözle sayılır (32 char). Key 16/24/32 (`VariableKeyLength<16,16,32,8>`).
   Factory negatif-test örneği `Camellia` → `SEED` olarak değişti (son kalan).
+- **SEED dersleri (en pürüzsüz engine)**: CryptoPP `seed.cpp` birebir port (G-fonksiyonu
+  SS0..SS3 maskeleri + iç-içe G katmanlı Feistel, BE); s0/s1/kc machine-transfer.
+  4 RFC 4269 KAT'ı İLK DENEMEDE geçti — tablo + mantık hatasızdı. Key sabit 16 byte
+  (`FixedKeyLength<16>`, tek fixed-key engine). Decrypt ayrı pre-reversed schedule
+  (CryptoPP DECRYPTION m_k'yi tersten yazar — aynı fikir). Tüm 13 suite portlu olduğu
+  için factory negatif-testi out-of-range selector'a çevrildi (`(CipherSuite)99` →
+  "Unknown", fail-closed kanıtı; sessiz fallback yok).
 - **Tablo stratejisi**: PowerShell'den ağ erişimi YOK (doğrulandı). Tablo-tabanlı
    engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
   transcription yok) + SHA256 provenance kaydı + KAT doğrulaması. KAT geçmeden tablo
