@@ -9,7 +9,7 @@ namespace Metin2.Tests.EditMode.Protocol
     public class BlockCipherEngineFactoryTests
     {
         [Test]
-        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES_Twofish()
+        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES_Twofish_Serpent()
         {
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TEA));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC6));
@@ -19,9 +19,17 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Blowfish));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TripleDES));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Twofish));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Serpent));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.MARS));
-            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Serpent));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.CAST256));
+            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Camellia));
+        }
+
+        [Test]
+        public void Create_Serpent_ReturnsWorkingEngine()
+        {
+            IBlockCipherEngine engine = BlockCipherEngineFactory.Create(CipherSuite.Serpent, new byte[16]);
+            Assert.AreEqual(16, engine.BlockSize);
         }
 
         [Test]
@@ -70,8 +78,8 @@ namespace Metin2.Tests.EditMode.Protocol
         public void Create_UnportedSuite_ThrowsNamingTheSuite()
         {
             var ex = Assert.Throws<CipherEngineNotImplementedException>(
-                () => BlockCipherEngineFactory.Create(CipherSuite.Serpent, new byte[16]));
-            StringAssert.Contains("Serpent", ex.Message);
+                () => BlockCipherEngineFactory.Create(CipherSuite.MARS, new byte[16]));
+            StringAssert.Contains("MARS", ex.Message);
         }
 
         [Test]
