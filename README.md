@@ -14,9 +14,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES tamam (7/13); factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES + Twofish tamam (8/13); factory + KAT altyapısı hazır |
 
-**Test: 241/241 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 253/253 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -123,6 +123,15 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   non-degenerate key şart + yapısal kontrol (IP∘FP=id, PC-1 parity-drop).
 - Test: 230 → **241/241** (+11: TripleDES 10, factory 1).
 
+### Adım 11 — Twofish Engine (Sprint 3, devam)
+- CryptoPP `twofish.cpp` birebir port (h0 fallthrough + RS + m_s + PHT/rotasyon, LE);
+  q[2][256] + mds[4][256] tabloları `tftables.cpp`'den (CryptoPP repo'da ayrı dosya!).
+- KAT: 5 Botan zincir vektörü (128-bit; her biri fresh schedule — schedule coverage ücretsiz).
+  Key 16/24/32 desteklenir (24/32 yolu round-trip ile kaplı).
+- Not: hafızadaki E_0(0) varyantı (B7220BDC…) yanlış çıktı; literal port + KAT kanıtı
+  hafızayı yendi (doğrusu 9F589F5CF6122C32…).
+- Test: 241 → **253/253** (+12: Twofish 11, factory 1).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -147,7 +156,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | SHACAL-2 (12) | `Shacal2EngineTests` | 3 NESSIE KAT + 3 Python çapraz-kontrol + decrypt + round-trip |
 | Blowfish (15) | `BlowfishEngineTests` | 6 ECB + 4 set_key KAT + decrypt + round-trip |
 | TripleDES (10) | `TripleDesEngineTests` | NIST degeneracy + Destest + 2-key + Python + decrypt |
-| Factory (8) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
+| Twofish (11) | `TwofishEngineTests` | 5 zincir KAT + decrypt + round-trip (16/24/32) |
+| Factory (9) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
 
 ## Mimari
 
@@ -182,7 +192,7 @@ Assets/Scripts/
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
-│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, BlockCipherEngineFactory (KAT'li; +6 sırada)
+│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, BlockCipherEngineFactory (KAT'li; +5 sırada)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
@@ -194,7 +204,7 @@ Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
                        CipherKeyDerivationTests, CipherSessionTests, TeaEngineTests,
-                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlowfishEngineTests, TripleDesEngineTests, BlockCipherEngineFactoryTests
+                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, Shacal2EngineTests, BlowfishEngineTests, TripleDesEngineTests, TwofishEngineTests, BlockCipherEngineFactoryTests
 ```
 
 ## Test
@@ -207,13 +217,13 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 241/241 başarılı ✅**
+**Son test sonucu: 253/253 başarılı ✅**
 
 ## Dokümanlar
 
 - [`CHANGELOG.md`](CHANGELOG.md) — Değişiklik günlüğü (sprint'e bağlı)
 - [`docs/sprints/SPRINT_02-protocol-core.md`](docs/sprints/SPRINT_02-protocol-core.md) — Sprint 2 kaydı
-- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (7/13 ✅)
+- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (8/13 ✅)
 - [`docs/decisions/ADR-0002-cipher-engine-strategy.md`](docs/decisions/ADR-0002-cipher-engine-strategy.md) — Port kararı
 - [`docs/protocol/cipher-spec.md`](docs/protocol/cipher-spec.md) — Cipher iz sürme (kaynak referanslı)
 - [`AGENT_DEVELOPMENT_GUIDE.md`](AGENT_DEVELOPMENT_GUIDE.md) — AI agent geliştirme rehberi ve kurallar
@@ -226,12 +236,12 @@ dotnet test Metin2.Tests.csproj
 
 - DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
 - CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
-- 6 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
+- 5 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
 - GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (devam): Twofish sırada (AES aday NIST KAT'leri; q-box tabloları webfetch machine-transfer ile).
+**Sprint 3 — Cipher Engine'leri** (devam): Serpent sırada (AES aday KAT'leri; S-box tabloları webfetch machine-transfer ile).
 Engine'ler bitince: canlı sunucuya handshake → key agreement → ilk şifreli paket decode
 (bu adım yukarıdaki UNVERIFIED'ları da kapatır).
 

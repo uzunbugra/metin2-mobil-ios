@@ -20,7 +20,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 6 | IDEA | IDEA 8 round (swap output transform'da!) | 8 | HAC Tablo 7.12 (4 vektör + 52 subkey) | ✅ Tamamlandı |
 | 11 | Blowfish | Blowfish (big-endian, 16 round) | 8 | Schneier/Eric Young resmi vektörleri (6 ECB + 4 set_key, değişken key dahil) | ✅ Tamamlandı |
 | 7 | TripleDES | DES-EDE2 (FIPS 46-3 textbook core) | 8 | NIST SP 800-17 degeneracy + Rivest Destest + PyCryptodome 2-key + Python | ✅ Tamamlandı |
-| 3 | Twofish | Twofish | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (q-box tabloları gerekli) |
+| 3 | Twofish | Twofish (RS schedule, key-dependent S-box, LE) | 16 | Botan chaining KAT'leri (5×128-bit, fresh schedule each) | ✅ Tamamlandı |
 | 4 | Serpent | Serpent | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tabloları gerekli) |
 | 2 | MARS | MARS | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tablosu gerekli) |
 | 5 | CAST256 | CAST-256 | 16 | RFC 2612 | ⬜ Sırada (S-box tabloları gerekli) |
@@ -62,6 +62,13 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   yolunu da kanıtlar; k[16] wire-size resmi vektördür. Factory negatif-test örneği
   `Blowfish` → `MARS` olarak değişti (tekrarlayan pattern: portlanan suite negatif
   örnekten çıkarılır).
+- **Twofish dersleri**: tablolar CryptoPP `tftables.cpp`'den (q[2][256] + mds[4][256];
+  mantık `twofish.cpp` birebir port: h0 fallthrough + RS + m_s + PHT/rotasyon).
+  KAT Botan `twofish.vec` (AES submission türevi) zincir vektörleri — her KAT fresh
+  schedule demek, schedule coverage'ı ücretsiz. kDefault Twofish'e eşlenir, ayrı engine
+  yok. Key 16/24/32 (CryptoPP aralığı); 24/32 yolu round-trip ile kaplı.
+  Not: E_0(0)=9F589F5CF6122C32… — hafızadaki B7220BDC varyantı farklı bir teste aitmiş;
+  kanıt (literal port + KAT) hafızayı yendi.
 - **TripleDES dersleri**: yayınlanmış 2-key ECB vektör dosyası YOK (CryptoPP TestVectors'ta
   DES yok — validat.cpp hardcoded; SP 800-67 B.1 üç-key). Strateji: çekirdek degeneracy
   ile kanıtlandı (EDE2(K‖K)==DES(K) → NIST SP 800-17 A + B.1 resmi vektörleri) + Rivest
