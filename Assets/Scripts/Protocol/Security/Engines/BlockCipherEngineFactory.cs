@@ -24,7 +24,8 @@ namespace Metin2.Protocol.Security.Engines
                 || suite == CipherSuite.Serpent
                 || suite == CipherSuite.MARS
                 || suite == CipherSuite.CAST256
-                || suite == CipherSuite.Camellia;
+                || suite == CipherSuite.Camellia
+                || suite == CipherSuite.SEED;
         }
 
         public static IBlockCipherEngine Create(CipherSuite suite, byte[] key)
@@ -55,6 +56,8 @@ namespace Metin2.Protocol.Security.Engines
                     return new Cast256Engine(key);
                 case CipherSuite.Camellia:
                     return new CamelliaEngine(key);
+                case CipherSuite.SEED:
+                    return new SeedEngine(key);
                 default:
                     throw new CipherEngineNotImplementedException(CipherSuiteTable.GetName(suite));
             }

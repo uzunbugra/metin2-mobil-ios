@@ -9,7 +9,7 @@ namespace Metin2.Tests.EditMode.Protocol
     public class BlockCipherEngineFactoryTests
     {
         [Test]
-        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES_Twofish_Serpent_MARS_CAST256_Camellia()
+        public void IsSupported_AllEngines_SEEDLast()
         {
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TEA));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC6));
@@ -23,7 +23,14 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.MARS));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.CAST256));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Camellia));
-            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.SEED));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.SEED));
+        }
+
+        [Test]
+        public void Create_SEED_ReturnsWorkingEngine()
+        {
+            IBlockCipherEngine engine = BlockCipherEngineFactory.Create(CipherSuite.SEED, new byte[16]);
+            Assert.AreEqual(16, engine.BlockSize);
         }
 
         [Test]
@@ -97,11 +104,14 @@ namespace Metin2.Tests.EditMode.Protocol
         }
 
         [Test]
-        public void Create_UnportedSuite_ThrowsNamingTheSuite()
+        public void Create_UnknownSuite_ThrowsNamingTheSuite()
         {
+            // All 13 named suites are ported; an out-of-range selector must still
+            // fail closed (never a silent fallback).
+            Assert.IsFalse(BlockCipherEngineFactory.IsSupported((CipherSuite)99));
             var ex = Assert.Throws<CipherEngineNotImplementedException>(
-                () => BlockCipherEngineFactory.Create(CipherSuite.SEED, new byte[16]));
-            StringAssert.Contains("SEED", ex.Message);
+                () => BlockCipherEngineFactory.Create((CipherSuite)99, new byte[16]));
+            StringAssert.Contains("Unknown", ex.Message);
         }
 
         [Test]
