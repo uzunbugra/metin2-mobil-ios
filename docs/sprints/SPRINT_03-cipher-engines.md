@@ -23,8 +23,8 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 3 | Twofish | Twofish (RS schedule, key-dependent S-box, LE) | 16 | Botan chaining KAT'leri (5×128-bit, fresh schedule each) | ✅ Tamamlandı |
 | 4 | Serpent | Serpent (Osvik S-box + LT, LE, 32 round) | 16 | Botan (5) + LTC single-bit (3+2+1) KAT'leri | ✅ Tamamlandı |
 | 2 | MARS | MARS (IBM tweak'li schedule, E-fonksiyon, LE) | 16 | CryptoPP mars.txt KAT'leri (5×128 + 1×192-bit) | ✅ Tamamlandı |
-| 5 | CAST256 | CAST-256 | 16 | RFC 2612 | ⬜ Sırada (S-box tabloları gerekli) |
-| 8 | Camellia | Camellia | 16 | RFC 3713 / NESSIE | ⬜ Sırada (S-box GF(2^8) matematiğinden türetilebilir) |
+| 5 | CAST256 | CAST-256 | 16 | RFC 2612 Appendix A (128/192/256-bit) | ✅ Tamamlandı |
+| 8 | Camellia | Camellia | 16 | RFC 3713 Ek A (128/192/256-bit) + NESSIE zero-key | ✅ Tamamlandı |
 | 9 | SEED | SEED | 16 | RFC 4269 / KISA | ⬜ Sırada (S-box tabloları gerekli) |
 | 10 | RC5 | RC5-32/16/16 (CryptoPP default 16 round; little-endian!) | 8 | Rivest zincir vektörleri, r=12 (5 vektör, word→LE çevrimli) | ✅ Tamamlandı |
 | 13 | SHACAL2 | SHACAL-2 (big-endian, SHA-256 round fn, feedforward yok) | 32 | NESSIE submission via CryptoPP TestVectors (3×512-bit) + Python çapraz-kontrol (3×128-bit) | ✅ Tamamlandı |
@@ -95,8 +95,27 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   düşmüştü (55 entry) — degenerate B.1 vektörü (tüm subkey'ler sıfır!) bunu yakalayamadı,
   A vektörü yakaladı. Ders: her KAT setinde en az bir non-degenerate key şart; yapısal
   kontrol (IP∘FP=id, PC-1 parity-drop) ucuz ve etkili.
+- **CAST-256 dersleri (tablosuz key schedule)**: S1–S4 BouncyCastle `Cast5Engine.cs`'den
+  machine-transfer ile alındı (== RFC 2144 Ek A == RFC 2612 §2.1.1; S5–S8 CAST-256'da
+  kullanılmaz — sadece CAST-128 key schedule'ına aittir). CryptoPP `cast.cpp`'deki
+  statik `t_m/t_r` tabloları (192+192 word) yerine BouncyCastle yolu seçildi:
+  `Cm/Mm/Cr/Mr`'den dinamik Tm/Tr türetme — tablo riski sıfır, KAT hakem (3 RFC vektörü
+  ilk denemede geçti). Key 16..32 byte (4'ün katları; `VariableKeyLength<16,16,32,4>`),
+  round-trip 16/20/24/28/32 ile kaplı. Factory negatif-test örneği `CAST256` →
+   `Camellia` olarak değişti.
+- **Camellia dersleri (ezber-transkripsiyon tuzağı)**: SBOX1..4 BouncyCastle
+  `CamelliaEngine.cs`'den machine-transfer (== CryptoPP `camellia.cpp` SP tabloları,
+  head word'ler çapraz kontrol edildi). Mantık BouncyCastle C#→C# port (RFC 3713:
+  F + FL/FLINV, 18 round / 24 round, KA/KB schedule); enc+dec schedule'ları ayrı
+  kurulur (reverse-derivasyon yok, BC `setKey` forward/reverse verbatim). KAT:
+  128-bit RFC + NESSIE zero-key ilk denemede geçti; 192/256-bit patladı — neden
+  engine değil TEST'ti: beklenen CT'ler ezberden yazılmıştı (31 char kalmış,
+  Serpent'teki trailing-char dersi tekrarı!). RFC metnindeki gerçek değerlerle
+  düzeltildi, hepsi geçti. Ders: beklenen hex'ler DAİMA kaynaktan kopyalanır,
+  uzunluk gözle sayılır (32 char). Key 16/24/32 (`VariableKeyLength<16,16,32,8>`).
+  Factory negatif-test örneği `Camellia` → `SEED` olarak değişti (son kalan).
 - **Tablo stratejisi**: PowerShell'den ağ erişimi YOK (doğrulandı). Tablo-tabanlı
-  engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
+   engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
   transcription yok) + SHA256 provenance kaydı + KAT doğrulaması. KAT geçmeden tablo
   güvenilmez sayılır.
 
