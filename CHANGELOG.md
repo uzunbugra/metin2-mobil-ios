@@ -12,8 +12,10 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - TEA engine (`CipherSuite.TEA`): Wheeler–Needham + bağımsız KAT setiyle doğrulandı (7 vektör).
 - RC6 engine (`CipherSuite.RC6`): RC6 paper + IETF KAT'leri (5 vektör, 16/24-byte key; little-endian).
 - IDEA engine (`CipherSuite.IDEA`): HAC Tablo 7.12 (4 vektör + 52 subkey schedule testi).
-- `BlockCipherEngineFactory`: TEA + RC6 + IDEA; diğerleri `CipherEngineNotImplementedException`.
-- Test: 155 → 191 (+36: TEA 14, RC6 9, IDEA 9, factory 4).
+- RC5 engine (`CipherSuite.RC5`): Rivest zincir vektörleri, r=12 (5 vektör, word→LE çevrimli);
+  round-parametrik (default 16 = CryptoPP `VariableRounds<16>`).
+- `BlockCipherEngineFactory`: TEA + RC6 + IDEA + RC5; diğerleri `CipherEngineNotImplementedException`.
+- Test: 155 → 201 (+46: TEA 14, RC6 9, IDEA 9, RC5 9, factory 5).
 
 ## [2026-09-29] — Sprint 2: cipher çekirdek (bölüm 2)
 ### Eklenen

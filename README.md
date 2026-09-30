@@ -14,9 +14,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
-| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA tamam (3/13); factory + KAT altyapısı hazır |
+| Sprint 3 — Cipher Engine'leri | 🚧 Devam ediyor | 13 engine'den TEA + RC6 + IDEA + RC5 tamam (4/13); factory + KAT altyapısı hazır |
 
-**Test: 191/191 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 201/201 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -84,6 +84,15 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   RC5 CryptoPP default'u 16 round (Rivest vektörleri /12/16 — uymaz), kalan 10 engine'in tablo ihtiyaçları.
 - Test: 173 → **191/191** (+18). Commitler: `862fea5` (feat) + `b03187c` (docs).
 
+### Adım 7 — RC5 Engine (Sprint 3, devam)
+- **RC5-32 round-parametrik** (default 16 = CryptoPP `VariableRounds<16>`; KAT'lar r=12 ile).
+  5 Rivest zincir vektörü (her ciphertext bir sonrakinin plaintext'i) + decrypt + r=16 round-trip.
+- İki gerçek transkripsiyon tuzağı avlandı (engine doğruydu, test düzeltildi):
+  1. Rivest word basar, wire little-endian'dır (RFC 2040 §6.1/§6.3) — beklenen stringler LE'ye çevrildi.
+  2. V3 word'ünde son-iki-byte takası (`…6992FC` → `…69FC92`).
+- r=16/r=12 çıktı farkı assert'lenir (round parametresinin canlı olduğu kanıtı).
+- Test: 191 → **201/201** (+10: RC5 9, factory 1).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -104,7 +113,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | TEA (14) | `TeaEngineTests` | 7 KAT + decrypt + round-trip |
 | RC6 (9) | `Rc6EngineTests` | 5 KAT + decrypt + round-trip |
 | IDEA (9) | `IdeaEngineTests` | 4 KAT + schedule + decrypt + round-trip |
-| Factory (4) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
+| RC5 (9) | `Rc5EngineTests` | 5 KAT (r=12) + decrypt + r=16 round-trip |
+| Factory (5) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip |
 
 ## Mimari
 
@@ -139,7 +149,7 @@ Assets/Scripts/
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
-│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, BlockCipherEngineFactory (KAT'li; +10 sırada)
+│   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, BlockCipherEngineFactory (KAT'li; +9 sırada)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState
@@ -151,7 +161,7 @@ Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
                        CipherKeyDerivationTests, CipherSessionTests, TeaEngineTests,
-                       Rc6EngineTests, IdeaEngineTests, BlockCipherEngineFactoryTests
+                       Rc6EngineTests, IdeaEngineTests, Rc5EngineTests, BlockCipherEngineFactoryTests
 ```
 
 ## Test
@@ -164,13 +174,13 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 191/191 başarılı ✅**
+**Son test sonucu: 201/201 başarılı ✅**
 
 ## Dokümanlar
 
 - [`CHANGELOG.md`](CHANGELOG.md) — Değişiklik günlüğü (sprint'e bağlı)
 - [`docs/sprints/SPRINT_02-protocol-core.md`](docs/sprints/SPRINT_02-protocol-core.md) — Sprint 2 kaydı
-- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (3/13 ✅)
+- [`docs/sprints/SPRINT_03-cipher-engines.md`](docs/sprints/SPRINT_03-cipher-engines.md) — Engine kontrol listesi (4/13 ✅)
 - [`docs/decisions/ADR-0002-cipher-engine-strategy.md`](docs/decisions/ADR-0002-cipher-engine-strategy.md) — Port kararı
 - [`docs/protocol/cipher-spec.md`](docs/protocol/cipher-spec.md) — Cipher iz sürme (kaynak referanslı)
 - [`AGENT_DEVELOPMENT_GUIDE.md`](AGENT_DEVELOPMENT_GUIDE.md) — AI agent geliştirme rehberi ve kurallar
@@ -183,12 +193,12 @@ dotnet test Metin2.Tests.csproj
 
 - DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
 - CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
-- 10 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
+- 9 cipher engine (tablo-tabanlı olanlar için strateji `SPRINT_03`'te)
 - GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 
-**Sprint 3 — Cipher Engine'leri** (devam): RC5 (round-parametrik) veya SHACAL-2 (küçük tablo) sırada.
+**Sprint 3 — Cipher Engine'leri** (devam): SHACAL-2 (küçük tablo, 64 word K sabiti) sırada.
 Engine'ler bitince: canlı sunucuya handshake → key agreement → ilk şifreli paket decode
 (bu adım yukarıdaki UNVERIFIED'ları da kapatır).
 

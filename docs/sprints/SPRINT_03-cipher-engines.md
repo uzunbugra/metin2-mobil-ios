@@ -26,7 +26,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 5 | CAST256 | CAST-256 | 16 | RFC 2612 | ⬜ Sırada (S-box tabloları gerekli) |
 | 8 | Camellia | Camellia | 16 | RFC 3713 / NESSIE | ⬜ Sırada (S-box GF(2^8) matematiğinden türetilebilir) |
 | 9 | SEED | SEED | 16 | RFC 4269 / KISA | ⬜ Sırada (S-box tabloları gerekli) |
-| 10 | RC5 | RC5-32/**16**/16 (CryptoPP default 16 round!) | 8 | Rivest vektörleri /12/16 — r=16 KAT yok; r parametrik + r=12 KAT ile yapılacak | ⬜ Sırada (tablosuz, hesaplanabilir) |
+| 10 | RC5 | RC5-32/16/16 (CryptoPP default 16 round; little-endian!) | 8 | Rivest zincir vektörleri, r=12 (5 vektör, word→LE çevrimli) | ✅ Tamamlandı |
 | 13 | SHACAL2 | SHACAL-2 | 32 | NESSIE submission vektörleri | ⬜ Sırada (64 word K sabiti gerekli, küçük) |
 
 Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
@@ -37,9 +37,15 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
 - **IDEA swap'i output transform'dadır**: round'lar `((11),(12),(13),(14))` zincirlenir
   (HAC Tablo 7.12'nin 8 round'u da bunu kanıtlar); iç kelimeler OT'da çaprazlanır.
   Decrypt için staggered schedule yerine explicit inverse kullanıldı (gerekçeli, KAT'li).
-- **RC5 uyarısı**: `VariableRounds<16>` → CryptoPP default 16 round; Rivest'in yayınlanmış
-  vektörleri /12/16 içindir. RC5 engine'i round-parametrik yazılacak (default 16),
-  algoritma r=12 KAT ile kanıtlanacak.
+- **RC5 uyarısı (doğrulandı)**: `VariableRounds<16>` → CryptoPP default 16 round; Rivest'in yayınlanmış
+  vektörleri /12/16 içindir. RC5 engine'i round-parametrik yazıldı (default 16),
+  algoritma r=12 KAT ile kanıtlandı (5 zincir vektörü). r=16/r=12 çıktı farkı testte
+  assert'lenir (parametrenin gerçekten canlı olduğu kanıtı).
+- **Word-sıralı vektör tuzağı (RC5)**: Rivest word basar (`EEDBA521 6D8F4B15`), wire
+  little-endian'dır (RFC 2040 §6.1/§6.3 — RC6 ile aynı konvansiyon). Teste LE byte
+  karşılığı yazılır (`21A5DBEE154B8F6D`). İlk denemede BE string kullanıldı, 6 test
+  patladı; düzeltme testte yapıldı, engine doğruydu. Transkripsiyon çift gözle kontrol
+  edilir (V3 word'ünde son-iki-byte takası da yakalandı).
 - **Tablo stratejisi**: PowerShell'den ağ erişimi YOK (doğrulandı). Tablo-tabanlı
   engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
   transcription yok) + SHA256 provenance kaydı + KAT doğrulaması. KAT geçmeden tablo
