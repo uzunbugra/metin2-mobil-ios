@@ -20,8 +20,11 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - Blowfish engine (`CipherSuite.Blowfish`): CryptoPP port + pi-digit tabloları (P+S,
   OpenSSL `bf_pi.h`); Schneier resmi vektörleri (6 ECB + 4 set_key, key 4/8/16/24 byte;
   k[16] wire-size resmi vektör); key 4..56 byte (CryptoPP `VariableKeyLength<16,4,56>`).
-- `BlockCipherEngineFactory`: TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish; diğerleri `CipherEngineNotImplementedException`.
-- Test: 155 → 230 (+75: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, Blowfish 15, factory 7).
+- TripleDES engine (`CipherSuite.TripleDES`): FIPS 46-3 textbook DES core + EDE2 wiring
+  (CryptoPP `DES_EDE2` aynası); NIST SP 800-17 degeneracy KAT'leri + Rivest Destest (X16)
+  + PyCryptodome 2-key vektörü + Python çapraz-kontrol; key sabit 16 byte (`FixedKeyLength<16>`).
+- `BlockCipherEngineFactory`: TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES; diğerleri `CipherEngineNotImplementedException`.
+- Test: 155 → 241 (+86: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, Blowfish 15, TripleDES 10, factory 8).
 
 ## [2026-09-29] — Sprint 2: cipher çekirdek (bölüm 2)
 ### Eklenen

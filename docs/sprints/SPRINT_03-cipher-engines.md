@@ -19,7 +19,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 1 | RC6 | RC6-32/20/16 (little-endian packing!) | 16 | RC6 paper appendix + IETF draft (5 vektör, 16/24-bit anahtar) | ✅ Tamamlandı |
 | 6 | IDEA | IDEA 8 round (swap output transform'da!) | 8 | HAC Tablo 7.12 (4 vektör + 52 subkey) | ✅ Tamamlandı |
 | 11 | Blowfish | Blowfish (big-endian, 16 round) | 8 | Schneier/Eric Young resmi vektörleri (6 ECB + 4 set_key, değişken key dahil) | ✅ Tamamlandı |
-| 7 | TripleDES | DES-EDE2 | 8 | NIST SP 800-67 | ⬜ Sırada (DES S-box tabloları gerekli) |
+| 7 | TripleDES | DES-EDE2 (FIPS 46-3 textbook core) | 8 | NIST SP 800-17 degeneracy + Rivest Destest + PyCryptodome 2-key + Python | ✅ Tamamlandı |
 | 3 | Twofish | Twofish | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (q-box tabloları gerekli) |
 | 4 | Serpent | Serpent | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tabloları gerekli) |
 | 2 | MARS | MARS | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tablosu gerekli) |
@@ -62,6 +62,14 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   yolunu da kanıtlar; k[16] wire-size resmi vektördür. Factory negatif-test örneği
   `Blowfish` → `MARS` olarak değişti (tekrarlayan pattern: portlanan suite negatif
   örnekten çıkarılır).
+- **TripleDES dersleri**: yayınlanmış 2-key ECB vektör dosyası YOK (CryptoPP TestVectors'ta
+  DES yok — validat.cpp hardcoded; SP 800-67 B.1 üç-key). Strateji: çekirdek degeneracy
+  ile kanıtlandı (EDE2(K‖K)==DES(K) → NIST SP 800-17 A + B.1 resmi vektörleri) + Rivest
+  Destest recurrence (X16; enc+dec+schedule hepsi) + PyCryptodome 2-key vektörü + Python
+  çapraz-kontrol (Python önce SP 800-17'de doğrulandı). PC-1 transkripsiyonunda "21" girişi
+  düşmüştü (55 entry) — degenerate B.1 vektörü (tüm subkey'ler sıfır!) bunu yakalayamadı,
+  A vektörü yakaladı. Ders: her KAT setinde en az bir non-degenerate key şart; yapısal
+  kontrol (IP∘FP=id, PC-1 parity-drop) ucuz ve etkili.
 - **Tablo stratejisi**: PowerShell'den ağ erişimi YOK (doğrulandı). Tablo-tabanlı
   engine'ler için webfetch ile yetkili kaynaktan çekip dosyaya yazma (machine-transfer,
   transcription yok) + SHA256 provenance kaydı + KAT doğrulaması. KAT geçmeden tablo
