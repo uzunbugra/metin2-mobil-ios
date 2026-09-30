@@ -9,7 +9,7 @@ namespace Metin2.Tests.EditMode.Protocol
     public class BlockCipherEngineFactoryTests
     {
         [Test]
-        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES()
+        public void IsSupported_TEA_RC6_IDEA_RC5_SHACAL2_Blowfish_TripleDES_Twofish()
         {
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TEA));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.RC6));
@@ -18,9 +18,17 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.SHACAL2));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Blowfish));
             Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.TripleDES));
-            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Twofish));
+            Assert.IsTrue(BlockCipherEngineFactory.IsSupported(CipherSuite.Twofish));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.MARS));
             Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.Serpent));
+            Assert.IsFalse(BlockCipherEngineFactory.IsSupported(CipherSuite.CAST256));
+        }
+
+        [Test]
+        public void Create_Twofish_ReturnsWorkingEngine()
+        {
+            IBlockCipherEngine engine = BlockCipherEngineFactory.Create(CipherSuite.Twofish, new byte[16]);
+            Assert.AreEqual(16, engine.BlockSize);
         }
 
         [Test]
