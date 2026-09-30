@@ -22,7 +22,7 @@ Altyapı hazır: `IBlockCipherEngine` seam, `CtrStream`, `CipherSession`, `Block
 | 7 | TripleDES | DES-EDE2 (FIPS 46-3 textbook core) | 8 | NIST SP 800-17 degeneracy + Rivest Destest + PyCryptodome 2-key + Python | ✅ Tamamlandı |
 | 3 | Twofish | Twofish (RS schedule, key-dependent S-box, LE) | 16 | Botan chaining KAT'leri (5×128-bit, fresh schedule each) | ✅ Tamamlandı |
 | 4 | Serpent | Serpent (Osvik S-box + LT, LE, 32 round) | 16 | Botan (5) + LTC single-bit (3+2+1) KAT'leri | ✅ Tamamlandı |
-| 2 | MARS | MARS | 16 | AES aday KAT'leri (NIST) | ⬜ Sırada (S-box tablosu gerekli) |
+| 2 | MARS | MARS (IBM tweak'li schedule, E-fonksiyon, LE) | 16 | CryptoPP mars.txt KAT'leri (5×128 + 1×192-bit) | ✅ Tamamlandı |
 | 5 | CAST256 | CAST-256 | 16 | RFC 2612 | ⬜ Sırada (S-box tabloları gerekli) |
 | 8 | Camellia | Camellia | 16 | RFC 3713 / NESSIE | ⬜ Sırada (S-box GF(2^8) matematiğinden türetilebilir) |
 | 9 | SEED | SEED | 16 | RFC 4269 / KISA | ⬜ Sırada (S-box tabloları gerekli) |
@@ -79,6 +79,14 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
   3. Test string'lerinde düşen trailing char'lar (Byte[15] hatası) — hex uzunluğu gözle.
   Debug altyapısı: C# gövdelerini parse edip çalıştıran Python script'i (transkripsiyonsuz
   doğrulama) + Botan tabloları hakem. Factory throw-testi örneği `Serpent` → `MARS`.
+- **MARS dersleri (rotl/rotr kafa karışması)**: backward mixing'de `t = ROTL24(a)` varken
+  `ROTR24` yazılmıştı (forward'daki `ROTR24` ile karıştı) — round-trip dahil HER ŞEY patladı,
+  ama 512 word S-box hatasızdı. Ders: rotl/rotr yönleri tablo gibi değil, SEMANTİK olarak
+  doğrulanır (fwd/bwd mutual-inverse testi: B(F(x))==x — bu test olsaydı bug ilk anda
+  yakalanırdı). Debug yolu öğreticiydi: C#+Python aynı yanlış okumayı paylaşınca ikisi de
+  aynı yanlış cevabı verdi (D1D9…); jenerik-inversiyon deneyi kendi türetme hatasıyla
+  (r, a'dan değil t'ten hesaplanır) vakit kaybettirdi — ama `t`'ye odaklanmak gerçek bug'a
+  götürdü. İkinci kaynaktan (jsDelivr) doğrulama fetch-mangling'i eledi.
 - **TripleDES dersleri**: yayınlanmış 2-key ECB vektör dosyası YOK (CryptoPP TestVectors'ta
   DES yok — validat.cpp hardcoded; SP 800-67 B.1 üç-key). Strateji: çekirdek degeneracy
   ile kanıtlandı (EDE2(K‖K)==DES(K) → NIST SP 800-17 A + B.1 resmi vektörleri) + Rivest

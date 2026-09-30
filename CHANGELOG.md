@@ -29,8 +29,11 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - Serpent engine (`CipherSuite.Serpent`): submission-spec classic yapı + Osvik bitslice
   S-box'ları (nibble-paralel); Botan KAT'leri (5×128-bit) + LTC single-bit KAT'leri
   (3×16 + 1×24 + 1×32-byte); key 16/24/32 byte (CryptoPP `VariableKeyLength<16,16,32,8>`).
-- `BlockCipherEngineFactory`: 9 suite (TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES + Twofish + Serpent); diğerleri `CipherEngineNotImplementedException`.
-- Test: 155 → 272 (+117: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, Blowfish 15, TripleDES 10, Twofish 11, Serpent 18, factory 10).
+- MARS engine (`CipherSuite.MARS`): CryptoPP birebir port (IBM Aug-1999 tweak'li schedule,
+  E-fonksiyon, LE); S-box (`marss.cpp`); CryptoPP `mars.txt` KAT'leri (5×128 + 1×192-bit,
+  zincirli vektör dahil); key 16..56 byte (8'in katları).
+- `BlockCipherEngineFactory`: 10 suite (TEA + RC6 + IDEA + RC5 + SHACAL-2 + Blowfish + TripleDES + Twofish + Serpent + MARS); diğerleri `CipherEngineNotImplementedException`.
+- Test: 155 → 285 (+130: TEA 14, RC6 9, IDEA 9, RC5 9, SHACAL-2 12, Blowfish 15, TripleDES 10, Twofish 11, Serpent 18, MARS 12, factory 11).
 
 ## [2026-09-29] — Sprint 2: cipher çekirdek (bölüm 2)
 ### Eklenen
