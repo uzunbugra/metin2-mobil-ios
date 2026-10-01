@@ -67,7 +67,15 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   (16/76 Loading-only, 1/2 Game-only).
 - `GameWorldClientTests` (5 loopback): stats sırası, add→del eventleri, ters-sıra fail-closed.
 - `packet-catalog.json`: 16/76/1/2 VERIFIED (30 paket).
-- Test: 476 → 511 (+35).
+- Item sistemi (Sprint 5, adım 2): `InventoryClient`
+  (`Metin2.Network.Session`) — set/clear/update eventleri (Loading+Game).
+- `PacketGCItemSet` (21, 51B) + `PacketGCItemDel` (20, 42B DelDeprecated) +
+  `PacketGCItemUpdate` (25, 38B) paket+codec (+`ItemFieldCodec`).
+- `PacketLengthTable`: 21→51, 20→42, 25→38; game registry +3 (Loading+Game).
+- `InventoryClientTests` (5 loopback): set→update→clear yaşam döngüsü,
+  Game-fazı kabulü, yanlış-faz fail-closed.
+- `packet-catalog.json`: 21/20/25 VERIFIED (33 paket).
+- Test: 511 → 536 (+25).
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).

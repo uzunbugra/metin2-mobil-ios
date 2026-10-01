@@ -29,7 +29,30 @@ Dersler:
   istemciye ayrı quickslot paketi bu yolda yok — implemente edilmedi.
 - Test: 476 → 511 (+35).
 
+## Adım 2 — Item sistemi (tamamlandı ✅)
+
+İz sürme: `CHARACTER::SetItem` (`char_item.cpp:405-437`: item varsa 51B SET,
+yoksa 42B sıfırlanmış DEL) + `CItem::UpdatePacket` (`item.cpp:207-228`: 38B).
+Loading'daki ilk envanter bu yoldan parça-parça gelir (`ItemLoad` → AddToCharacter).
+
+| İş | Dosya | Test |
+|---|---|---|
+| GC_ITEM_SET (21, 51B) + codec | `Packets/PacketGCItemSet.cs`, `Codecs/PacketGCItemSetCodec.cs` (+`ItemFieldCodec`) | `PacketGCItemSetTests` (6) |
+| GC_ITEM_DEL (20, 42B DelDeprecated) + codec | `Packets/PacketGCItemDel.cs`, `Codecs/PacketGCItemDelCodec.cs` | `PacketGCItemDelTests` (6) |
+| GC_ITEM_UPDATE (25, 38B) + codec | `Packets/PacketGCItemUpdate.cs`, `Codecs/PacketGCItemUpdateCodec.cs` | `PacketGCItemUpdateTests` (6) |
+| Envanter istemcisi | `Network/Session/InventoryClient.cs` (Set/Cleared/Updated event) | `InventoryClientTests` (5 loopback) |
+| Framer + registry | `PacketLengthTable` (+21→51, +20→42, +25→38), game registry +3 (Loading+Game) | framer +1, registry +1 |
+
+Dersler:
+- **İsim tuzağı (SET/SET2)**: sunucu 21'e ITEM_SET der, istemci ITEM_SET2 —
+  51B layout aynıdır, wire kazanır. Katalogda notlu.
+- **20 asla 2-byte değildir**: `packet_item_del` (2B) bu yolda gönderilmez;
+  header 20 = 42B sıfırlanmış varyant. Boyut struct adından değil çağrı
+  yerinden (`char_item.cpp:428-436`) okunur.
+- **ref struct kopyalanır**: `PacketReader/Writer` helper'lara `ref` ile verilir,
+  yoksa pozisyon ilerlemez (derleme hatası değil, sessiz bug olurdu).
+- Test: 511 → 536 (+25).
+
 ## Sıradaki (Sprint 5 devam)
 
-- Item sistemi: `TPlayerItem` + ITEM_SET/UPDATE akışı (`ItemLoad` → AddToCharacter).
 - Hareket: SYNC_POSITION/MOVE paketleri (oynanabilir vertical slice).
