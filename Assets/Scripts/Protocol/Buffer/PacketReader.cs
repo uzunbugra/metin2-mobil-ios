@@ -77,6 +77,20 @@ namespace Metin2.Protocol.Buffer
             return value;
         }
 
+        public float ReadFloat()
+        {
+            EnsureAvailable(4, nameof(Single));
+            byte[] raw = new byte[4];
+            _data.Slice(_position, 4).CopyTo(raw);
+            _position += 4;
+            if (!BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(raw);
+            }
+
+            return BitConverter.ToSingle(raw, 0);
+        }
+
         public void ReadBytes(Span<byte> destination)
         {
             EnsureAvailable(destination.Length, $"Span<byte>[{destination.Length}]");

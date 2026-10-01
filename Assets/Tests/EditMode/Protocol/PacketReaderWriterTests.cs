@@ -194,5 +194,32 @@ namespace Metin2.Tests.EditMode.Protocol
             }
             Assert.IsTrue(threw2, "Expected ArgumentOutOfRangeException for overflow count.");
         }
+
+        [Test]
+        public void Float_RoundTrip_LittleEndianIeee754()
+        {
+            // 1.5f = 0x3FC00000 -> bytes 00 00 C0 3F (LE).
+            byte[] buffer = new byte[4];
+            var writer = new PacketWriter(buffer);
+            writer.WriteFloat(1.5f);
+            Assert.AreEqual(4, writer.BytesWritten);
+
+            CollectionAssert.AreEqual(new byte[] { 0x00, 0x00, 0xC0, 0x3F }, buffer);
+
+            var reader = new PacketReader(buffer);
+            Assert.AreEqual(1.5f, reader.ReadFloat());
+            Assert.AreEqual(0, reader.Remaining);
+        }
+
+        [Test]
+        public void Float_NegativeAndZero_RoundTrip()
+        {
+            foreach (float value in new float[] { 0f, -100.25f, 3.14159f })
+            {
+                byte[] buffer = new byte[4];
+                new PacketWriter(buffer).WriteFloat(value);
+                Assert.AreEqual(value, new PacketReader(buffer).ReadFloat());
+            }
+        }
     }
 }

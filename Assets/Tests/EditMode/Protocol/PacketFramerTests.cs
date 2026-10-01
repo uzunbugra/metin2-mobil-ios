@@ -286,5 +286,40 @@ namespace Metin2.Tests.EditMode.Protocol
             CollectionAssert.AreEqual(channel, f3);
             Assert.AreEqual(0, framer.BufferedBytes);
         }
+
+        [Test]
+        public void StatsAndSpawn_FrameAtSourceVerifiedLengths()
+        {
+            // 16 = 1021B (packet.h:1030-1034), 76 = 1531B (packet.h:1036-1040),
+            // 1 = 35B (packet.h:886-903), 2 = 5B (packet.h:959-963).
+            var framer = new PacketFramer();
+            byte[] points = new byte[PacketGCPoints.PacketSize];
+            points[0] = PacketGCPoints.PacketHeader;
+            byte[] skills = new byte[PacketGCSkillLevel.PacketSize];
+            skills[0] = PacketGCSkillLevel.PacketHeader;
+            byte[] add = new byte[PacketGCCharacterAdd.PacketSize];
+            add[0] = PacketGCCharacterAdd.PacketHeader;
+            byte[] del = PacketGCCharacterDeleteCodec.Serialize(new PacketGCCharacterDelete(7));
+
+            Assert.AreEqual(1021, points.Length);
+            Assert.AreEqual(1531, skills.Length);
+            Assert.AreEqual(35, add.Length);
+            Assert.AreEqual(5, del.Length);
+
+            framer.Append(points);
+            framer.Append(skills);
+            framer.Append(add);
+            framer.Append(del);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(points, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(skills, f2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f3));
+            CollectionAssert.AreEqual(add, f3);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f4));
+            CollectionAssert.AreEqual(del, f4);
+            Assert.AreEqual(0, framer.BufferedBytes);
+        }
     }
 }

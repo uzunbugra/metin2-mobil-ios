@@ -79,6 +79,19 @@ namespace Metin2.Protocol.Buffer
             _position += 4;
         }
 
+        public void WriteFloat(float value)
+        {
+            // BinaryPrimitives has no Single overload on netstandard2.1:
+            // BitConverter emits platform order, so normalize to LE.
+            byte[] raw = BitConverter.GetBytes(value);
+            if (!BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(raw);
+            }
+
+            WriteBytes(raw);
+        }
+
         public void WriteBytes(ReadOnlySpan<byte> source)
         {
             EnsureAvailable(source.Length, $"Span<byte>[{source.Length}]");

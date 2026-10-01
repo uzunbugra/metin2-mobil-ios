@@ -141,6 +141,37 @@ namespace Metin2.Protocol.Framing
                 return true;
             }
 
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_POINTS)
+            {
+                // sizeof(TPacketGCPoints) = 1+4*255 = 1021,
+                // server packet.h:1030-1034 (client mirror UserInterface/Packet.h:1600-1604).
+                length = 1021;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_SKILL_LEVEL)
+            {
+                // sizeof(TPacketGCSkillLevel) = 1+6*255 = 1531,
+                // server packet.h:1036-1040 (client mirror UserInterface/Packet.h:1977-1981).
+                length = 1531;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_ADD)
+            {
+                // sizeof(TPacketGCCharacterAdd) = 35, server packet.h:886-903
+                // (client mirror UserInterface/Packet.h:1226-1252).
+                length = 35;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_DEL)
+            {
+                // sizeof(TPacketGCCharacterDelete) = 1+4 = 5, server packet.h:959-963.
+                length = 5;
+                return true;
+            }
+
             length = 0;
             return false;
         }

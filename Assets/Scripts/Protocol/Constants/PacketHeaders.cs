@@ -46,5 +46,11 @@ namespace Metin2.Protocol.Constants
         public const byte HEADER_GC_MAIN_CHARACTER2_EMPIRE = 113; // 0x71 (server packet.h:225; client Packet.h:261, non-GAIDEN branch)
         public const byte HEADER_GC_TIME = 106;            // 0x6a (server packet.h:218; client Packet.h:248)
         public const byte HEADER_GC_CHANNEL = 121;         // 0x79 (server packet.h:234; client Packet.h:272)
+
+        // Loading Stats & Spawn
+        public const byte HEADER_GC_CHARACTER_POINTS = 16; // 0x10 (server packet.h:138; client Packet.h:159)
+        public const byte HEADER_GC_SKILL_LEVEL = 76;      // 0x4c (server packet.h:186; client Packet.h:212 SKILL_LEVEL_NEW)
+        public const byte HEADER_GC_CHARACTER_ADD = 1;     // 0x01 (server packet.h:118; client Packet.h:143)
+        public const byte HEADER_GC_CHARACTER_DEL = 2;     // 0x02 (server packet.h:119; client Packet.h:144)
     }
 }

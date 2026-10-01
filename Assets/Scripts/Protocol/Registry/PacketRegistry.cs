@@ -300,5 +300,49 @@ namespace Metin2.Protocol.Registry
 
             return registry;
         }
+
+        /// <summary>
+        /// World-entry registry plus the loading stats and game-phase spawn packets:
+        /// GC_POINTS (16, 1021B) and GC_SKILL_LEVEL (76, 1531B) arrive in the
+        /// Loading phase (`PlayerLoad`, input_db.cpp:457-458);
+        /// GC_CHARACTER_ADD (1, 35B) and GC_CHARACTER_DEL (2, 5B) arrive in the
+        /// Game phase (view/Show packets, `char.cpp:812`).
+        /// Client dispatch mirror: PhaseLoading (points/skill) and
+        /// PhaseGame.cpp:253-274 (spawn).
+        /// </summary>
+        public static PacketRegistry CreateGameRegistry()
+        {
+            var registry = CreateWorldEntryRegistry();
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_POINTS,
+                "HEADER_GC_CHARACTER_POINTS",
+                PacketDirection.ServerToClient,
+                1021,
+                allowedPhases: new[] { PhaseType.Loading }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_SKILL_LEVEL,
+                "HEADER_GC_SKILL_LEVEL",
+                PacketDirection.ServerToClient,
+                1531,
+                allowedPhases: new[] { PhaseType.Loading }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_ADD,
+                "HEADER_GC_CHARACTER_ADD",
+                PacketDirection.ServerToClient,
+                35,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_DEL,
+                "HEADER_GC_CHARACTER_DEL",
+                PacketDirection.ServerToClient,
+                5,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            return registry;
+        }
     }
 }
