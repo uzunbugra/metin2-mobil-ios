@@ -19,8 +19,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 4 — Auth Login (adım 1) | ✅ Tamamlandı | `AuthLoginClient`: CG_LOGIN3 → 150/7 karşılama + PanamaKey (loopback kanıtlı) |
 | Sprint 4 — Channel Login (adım 2) | ✅ Tamamlandı | `ChannelLoginClient`: CG_LOGIN2 → empire → 4 slot + endpoint (loopback kanıtlı) |
 | Sprint 4 — Select Fazı (adım 3) | ✅ Tamamlandı | `CharacterSelectClient`: select/create/delete + ENTERGAME (loopback kanıtlı) |
+| Sprint 4 — World Entry (adım 4) | ✅ Tamamlandı | `WorldEntryClient`: main-char → ENTERGAME → TIME+CHANNEL (loopback kanıtlı) |
 
-**Test: 450/450 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 476/476 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -31,7 +32,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
   - `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game
   - `docs/protocol/protocol-inventory.md` — 60+ CG, 80+ GC header, GD/DG/GG header'ları, framing kuralları
-  - `docs/protocol/packet-catalog.json` — 23 bağlantı paketi, makine-okunur katalog
+  - `docs/protocol/packet-catalog.json` — 26 bağlantı paketi, makine-okunur katalog
 - Commit: `dac18f6`
 
 ### Adım 1 — Unity Proje Altyapısı (Sprint 1)
@@ -244,6 +245,17 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   11'in adı yanıltır (tetikleyici boş slot).
 - Test: 397 → **450/450** (+53).
 
+### Adım 21 — World Entry (Sprint 4, adım 4 ✅)
+- Kaynak iz sürme: select → DB `PlayerLoad` (PHASE_LOADING + main-char +
+  loading bundle) → ENTERGAME → `Entergame` (PHASE_GAME + TIME + CHANNEL + greet).
+- 113 her zaman 46B empire layout'tur (45B header-15 legacy'dir); struct sırası
+  kritik: name race'ten SONRA gelir. `time_t` 4B iki tarafta (sunucu 32-bit +
+  istemci `_USE_32BIT_TIME_T`).
+- `PacketGCMainCharacter` (46B) + `PacketGCTime` (5B) + `PacketGCChannel` (2B);
+  framer 113→46, 106→5, 121→2; `CreateWorldEntryRegistry`.
+- `WorldEntryClient`: 113 (Loading) → 10 → 106+121 (Game, sıra dayatmalı).
+- Test: 450 → **476/476** (+26: MainCharacter 6, Time 6, Channel 6, registry 3, framer 1, WorldEntry 4).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -288,6 +300,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | SelectCG (22) | `PacketCGCharacterSelectTests`, `PacketCGCharacterCreateTests`, `PacketCGCharacterDeleteTests`, `PacketCGEnterGameTests` | Golden layout, round-trip, truncation, header check |
 | SelectGC (22) | `PacketGCCreateSuccessTests`, `PacketGCCreateFailureTests`, `PacketGCDeleteSuccessTests`, `PacketGCDeleteFailureTests` | Golden layout, round-trip, truncation, header check |
 | SelectFlow (6) | `CharacterSelectClientTests` | Loopback select→create→delete→entergame, fail paths, validasyon |
+| WorldEntry-Codecs (18) | `PacketGCMainCharacterTests`, `PacketGCTimeTests`, `PacketGCChannelTests` | Golden layout, struct-order, legacy-15 reddi, header check |
+| WorldEntry (4) | `WorldEntryClientTests` | Loopback main-char→entergame→time+channel, sıra/faz fail-closed |
 
 ## Mimari
 
@@ -314,7 +328,7 @@ Assets/Scripts/
 │   └── Logging/    — ILogger, SecretRedactor, UnityLogger
 ├── Protocol/       (Metin2.Protocol.asmdef — noEngineReferences: true)
 │   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O)
-│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec
+│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec
 │   ├── Constants/  — PacketHeaders, PhaseType
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
 │   │                  CipherEngineNotImplementedException, HandshakeFailedException
@@ -323,13 +337,13 @@ Assets/Scripts/
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
-│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, IPacket
+│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11)
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
-    ├── Network/    — TcpConnectionTests, HandshakeClientTests, AuthLoginClientTests, ChannelLoginClientTests, CharacterSelectClientTests
+    ├── Network/    — TcpConnectionTests, HandshakeClientTests, AuthLoginClientTests, ChannelLoginClientTests, CharacterSelectClientTests, WorldEntryClientTests
     └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests,
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
@@ -347,7 +361,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 450/450 başarılı ✅**
+**Son test sonucu: 476/476 başarılı ✅**
 
 ## Dokümanlar
 
@@ -361,7 +375,7 @@ dotnet test Metin2.Tests.csproj
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
-- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 109/150/7/90/32/6/4/5/10/8/9/10/11 VERIFIED (23 paket)
+- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 109/150/7/90/32/6/4/5/10/8/9/10/11/113/106/121 VERIFIED (26 paket)
 
 ## Bilinen Eksikler (UNVERIFIED)
 
@@ -370,8 +384,8 @@ dotnet test Metin2.Tests.csproj
 
 ## Sonraki Adım
 
-**Loading/world entry**: ENTERGAME sonrası GC_TIME/GC_CHANNEL/greet + ilk spawn
-paketleri — entity spawn/despawn iz sürme (vertical slice'a giriş).
+**Loading bundle**: points/skill/quickslot/item paketleri (`PlayerLoad` devamı,
+`char.cpp` PointsPacket/SkillLevelPacket) + ilk NPC/entity spawn iz sürme.
 
 ## Kurallar
 

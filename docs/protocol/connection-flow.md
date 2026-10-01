@@ -165,8 +165,16 @@ share `m_inputLogin`, `desc.cpp:539-547`); client dispatch mirror
   `TPacketGCBlank`, `PhaseSelect.cpp:278-286`).
 - `CharacterSelect` (`input_login.cpp:222`): needs `TAccountTable`,
   checks `PLAYER_PER_ACCOUNT`, sends `HEADER_GD_PLAYER_LOAD`.
+- Select → DB `PlayerLoad` (`input_db.cpp:385-459`): binds character,
+  `SetPhase(PHASE_LOADING)`, sends `GC_MAIN_CHARACTER2` (113, 46B empire layout
+  — `char.cpp:1543-1553`; BGM maps use 137/138 variants instead, out of scope),
+  then points/skill/quickslot/item bundle (loading bundle — next step), and the
+  client answers ENTERGAME from `PhaseLoading`.
 - `Entergame` (`input_login.cpp:546`): needs character, `Show()`,
-  `SetPhase(PHASE_GAME)`, then `HEADER_GC_TIME`, `HEADER_GC_CHANNEL`, greet.
+  `SetPhase(PHASE_GAME)`, then `HEADER_GC_TIME` (106, 5B: `time_t` is 4B BOTH
+  sides — 32-bit server, client `_USE_32BIT_TIME_T` in `StdAfx.h:14`),
+  `HEADER_GC_CHANNEL` (121, 2B, `g_bChannel`), greet.
+  C# mirror: `WorldEntryClient` (113 Loading → 10 → 106+121 Game).
 - Client `ConnectGameServer(slot)` (`PythonNetworkStream.cpp:462-472`):
   uses `m_akSimplePlayerInfo[slot].lAddr/wPort` — VERIFIED (see §4 lAddr note).
   C# mirror: `ChannelLoginClient.GetSlotEndpoint` (slot 0..3, empty-slot guard).

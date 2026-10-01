@@ -49,7 +49,16 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   create-fail tipi, delete-fail, yanlış-tür fail-closed, validasyon guard'ları.
 - `packet-catalog.json`: 7 select paketi eklendi, 10 VERIFIED (23 paket);
   `connection-flow.md` §5 select/create/delete/ENTERGAME yolları + 1-byte quirk'ler.
-- Test: 397 → 450 (+53).
+- World entry (Sprint 4, adım 4): `WorldEntryClient`
+  (`Metin2.Network.Session`) — main-char (113, Loading) → ENTERGAME → TIME+CHANNEL (Game).
+- `PacketGCMainCharacter` (113, 46B empire layout) + `PacketGCTime` (106, 5B) +
+  `PacketGCChannel` (121, 2B) paket+codec (18 test).
+- `PacketLengthTable`: 113→46, 106→5, 121→2; `PacketRegistry.CreateWorldEntryRegistry`
+  (113 Loading-only, 106/121 Game-only).
+- `WorldEntryClientTests` (4 loopback): tam giriş turu, ters-sıra ve yanlış-faz fail-closed.
+- `packet-catalog.json`: 113/106/121 VERIFIED (26 paket); `connection-flow.md` §5
+  PlayerLoad→main-char sırası + `time_t` ABI notu.
+- Test: 450 → 476 (+26).
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).

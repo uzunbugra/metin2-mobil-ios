@@ -101,7 +101,32 @@ Dersler:
   yalnızca social-id uyuşmazlığı değil.
 - Test: 397 → 450 (+53).
 
-## Sıradaki (Sprint 4 devam)
+## Adım 4 — World entry: main-char + TIME/CHANNEL (tamamlandı)
 
-- Loading/world entry: ENTERGAME sonrası GC_TIME/GC_CHANNEL/greet + spawn
-  paketleri (`input_login.cpp:546-579` devamı), entity spawn/despawn iz sürme.
+İz sürme: select → DB `PlayerLoad` (`input_db.cpp:385-459`: PHASE_LOADING +
+`MainCharacterPacket` + points/skill/quickslot/item bundle) → istemci ENTERGAME
+(`PhaseLoading`) → `Entergame` (`input_login.cpp:546-620`: Show, PHASE_GAME,
+TIME, CHANNEL, greet).
+
+| İş | Dosya | Test |
+|---|---|---|
+| GC_MAIN_CHARACTER2 (113, 46B) + codec | `Packets/PacketGCMainCharacter.cs`, `Codecs/PacketGCMainCharacterCodec.cs` | `PacketGCMainCharacterTests` (6: struct-order kanıtı + legacy-15 reddi) |
+| GC_TIME (106, 5B) + codec | `Packets/PacketGCTime.cs`, `Codecs/PacketGCTimeCodec.cs` | `PacketGCTimeTests` (6) |
+| GC_CHANNEL (121, 2B) + codec | `Packets/PacketGCChannel.cs`, `Codecs/PacketGCChannelCodec.cs` | `PacketGCChannelTests` (6) |
+| Framer + registry | `PacketLengthTable` (+113→46, +106→5, +121→2), `CreateWorldEntryRegistry` (113 Loading, 106/121 Game) | framer +1, registry +3 |
+| Entry orkestrasyonu | `Network/Session/WorldEntryClient.cs` (113 → 10 → 106+121) | `WorldEntryClientTests` (4 loopback) |
+
+Dersler:
+- **113 her zaman 46B empire layout'tur**: istemcideki 45B `TPacketGCMainCharacter`
+  (header 15) legacy'dir; bu sunucu BGM'siz haritada 113 + 46B gönderir
+  (GAIDEN-dışı dal). Struct SIRA FARKI da yakalandı: name race'ten SONRA gelir.
+- **`time_t` ABI tuzağı**: sunucu 32-bit (4B) + istemci `_USE_32BIT_TIME_T`
+  (`StdAfx.h:14`) = 5B iki tarafta. Biri 64-bit olsaydı stream sessizce desync olurdu.
+- **Codec önce uzunluğu kontrol eder**: 45-byte legacy buffer underflow verir,
+  header hatası değil — test buna göre yazıldı.
+- Test: 450 → 476 (+26).
+
+## Sıradaki (Sprint 4 devam → Sprint 5)
+
+- Loading bundle: points/skill/quickslot/item paketleri (TPlayerItem iz sürme).
+- Spawn: CHARACTER_ADD/DEL + hareket (vertical slice oynanabilirliği).
