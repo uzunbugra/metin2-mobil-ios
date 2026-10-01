@@ -36,8 +36,37 @@ Hedef: handshake sonrası auth-core login akışının istemci tarafı
 - **Şifre test'e yazılmaz**: `SendLogin_EmptyCredentials` testi, exception
   mesajlarının parolayı içermediğini assert'ler (guide §6.1).
 
-## Sıradaki (Sprint 4 devam)
+## Sıradaki (Sprint 4 devam) — güncelleme: adım 2 tamamlandı
 
-- Channel-core login: CG_LOGIN (1) / CG_LOGIN2 (109) + GC_LOGIN_KEY (118) akışı.
-- Select fazı: character list (GC_LOGIN_SUCCESS 6/32 — TSimplePlayer layout,
-  `tables.h` gerekli), select/create/delete, ENTERGAME (10).
+- ~~Channel-core login: CG_LOGIN (1) / CG_LOGIN2 (109) + GC_LOGIN_KEY (118) akışı.~~ ✅
+  CG_LOGIN2 (109) + empire (90) + character list (32) tamam (aşağıda).
+  CG_LOGIN (1, legacy parola) ve GC_LOGIN_KEY (118, bu build'de ölü — gönderen yok) açıkta.
+- Select fazı: select/create/delete paketleri, ENTERGAME (10).
+
+## Adım 2 — Channel login + character list (tamamlandı)
+
+İz sürme: `LoginByKey` (`input_login.cpp:138-190`) → `GD_LOGIN_BY_KEY` →
+`LoginSuccess` (`input_db.cpp:106-175`: status "OK" şart, empire, PHASE_SELECT) →
+`SendLoginSuccessPacket` (`desc.cpp:892-919`, header 32 NEWSLOT).
+İstemci: `SendLoginPacketNew` (`PhaseLogin.cpp:254-280`) → empire
+(`PhaseLogin.cpp:124-132`) → slotlar (`PhaseLogin.cpp:162-188`).
+
+| İş | Dosya | Test |
+|---|---|---|
+| CG_LOGIN2 (109, 52B) + codec | `Packets/PacketCGLogin2.cs`, `Codecs/PacketCGLogin2Codec.cs` | `PacketCGLogin2Tests` (6) |
+| GC_EMPIRE (90, 2B) + codec | `Packets/PacketGCEmpire.cs`, `Codecs/PacketGCEmpireCodec.cs` | `PacketGCEmpireTests` (7) |
+| TSimplePlayer (63B) + codec | `Packets/SimplePlayer.cs`, `Codecs/SimplePlayerCodec.cs` | `SimplePlayerCodecTests` (5) |
+| LoginSuccess (32, 329B) + codec | `Packets/PacketGCLoginSuccess.cs`, `Codecs/PacketGCLoginSuccessCodec.cs` | `PacketGCLoginSuccessTests` (6) |
+| Framer + registry | `PacketLengthTable` (+90→2, +32→329), `CreateChannelRegistry` (90 Login-only, 32 Select-only) | framer +1, registry +3 |
+| Kanal orkestrasyonu | `Network/Session/ChannelLoginClient.cs` (login2 → empire → slotlar; `GetSlotEndpoint`) | `ChannelLoginClientTests` (7 loopback) |
+
+Dersler:
+- **IPAddress(long) bayt takası yapmaz**: `new IPAddress(0x7F000001)` =
+  "1.0.0.127" verir. Wire'daki `inet_addr` çıktısı LE-okunmuş word'dür
+  (127.0.0.1 → 0x0100007F); octet'ler LSB-first genişletilir. İlk denemede
+  ters yazıldı, loopback testi yakaladı.
+- **`GC_LOGIN_KEY` (118) bu build'de ölüdür**: game src'de gönderen yok
+  (istemci handle eder ama asla gelmez) — implemente edilmedi, katalogda notlu.
+- **Null vs boş slot adı**: boş slot serialize'da sıfırlanır, deserialize'da
+  `""` döner; `Equals` null/"" denkliğini kabul eder.
+- Test: 362 → 397 (+35).

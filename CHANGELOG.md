@@ -28,7 +28,17 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   boş-credential guard (parola sızıntısı yok), ctor guard, PanamaKey formülü, key tazeliği.
 - `docs/sprints/SPRINT_04-auth-login.md`; `packet-catalog.json`: 150/7 eklendi (VERIFIED),
   111 VERIFIED'a yükseltildi; `connection-flow.md` §3 auth yanıt yolları VERIFIED.
-- Test: 325 → 362 (+37).
+- Channel login + character list (Sprint 4, adım 2): `ChannelLoginClient`
+  (`Metin2.Network.Session`) — CG_LOGIN2 (109, 52B) → empire (90) → slotlar (32, 329B).
+- `PacketCGLogin2` + codec (6 test), `PacketGCEmpire` + codec (7 test),
+  `SimplePlayer` TSimplePlayer 63B + codec (5 test), `PacketGCLoginSuccess` + codec (6 test).
+- `PacketLengthTable`: 90→2, 32→329; `PacketRegistry.CreateChannelRegistry`
+  (90 Login-only, 32 Select-only); `GetSlotEndpoint` (lAddr network-order → IP, VERIFIED).
+- `ChannelLoginClientTests` (7 loopback): tam kanal login + endpoint/expectation,
+  FULL status, parçalı 329B, ters-sıra fail-closed, guard'lar.
+- `packet-catalog.json`: 90 eklendi, 109/32 VERIFIED'a yükseltildi (16 paket);
+  `connection-flow.md` §4-§5: empire/select sırası, lAddr byte order ve ölü 118 notu.
+- Test: 362 → 397 (+35).
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).

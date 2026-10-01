@@ -104,8 +104,29 @@ A. `SendLoginPacket` (`PhaseLogin.cpp:234-252`): `HEADER_CG_LOGIN=1`,
 `CInputLogin::Login` (`input_login.cpp:86`) -> `HEADER_GD_LOGIN` to DB.
 
 B. `SendLoginPacketNew` (`PhaseLogin.cpp:254-280`): `HEADER_CG_LOGIN2=109`,
-`TPacketCGLogin2{header,name,dwLoginKey,adwClientKey[4]}` (`packet.h:508-514`)
--> `CInputLogin::LoginByKey` (`input_login.cpp:138`) -> `HEADER_GD_LOGIN_BY_KEY`.
+`TPacketCGLogin2{header,name[31],dwLoginKey,adwClientKey[4]}` (`packet.h:508-514`,
+1+31+4+16 = 52B; client mirror `Packet.h:503-509`)
+-> `CInputLogin::LoginByKey` (`input_login.cpp:138-190`: trim+lower, SHUTDOWN/FULL
+guards, `SetLoginKey`, `HEADER_GD_LOGIN_BY_KEY` to DB).
+C# codec + 52B golden tests: `PacketCGLogin2Codec`, `PacketCGLogin2Tests`.
+
+DB `HEADER_DG_LOGIN_SUCCESS` -> `CInputDB::LoginSuccess` (`input_db.cpp:106-175`)
+— VERIFIED: status column must be "OK" else `LoginFailure(d, status)` (7);
+else `GC_EMPIRE` (`TPacketGCEmpire{bHeader=90,bEmpire}`, `packet.h:1638-1642`, 2B;
+client mirror `Packet.h:2083-2087`, handled `PhaseLogin.cpp:124-132`), then
+`SetPhase(PHASE_SELECT)` + `SendLoginSuccessPacket` (`desc.cpp:892-919`):
+`HEADER_GC_LOGIN_SUCCESS_NEWSLOT=32` (`packet.h:125`),
+`TPacketGCLoginSuccess{bHeader,players[4],guild_id[4],guild_name[4][13],handle,random_key}`
+(`packet.h:838-847`, 1+63*4+16+52+4+4 = 329B; client `TPacketGCLoginSuccess4`
+`Packet.h:1125-1133`, handled `PhaseLogin.cpp:162-188`).
+`TSimplePlayer` (63B, pack(1)) is field-identical both sides
+(`tables.h:275-291` vs `Packet.h:1096-1113`; name len 24 both: server
+`length.h:13`, client `StdAfx.h:43`).
+Slot endpoint — VERIFIED: `lAddr` holds `inet_addr()` output
+(`map_location.cpp:47`, network order) and the client passes it verbatim to
+`Connect()` (`PythonNetworkStream.cpp:471-472`); `wPort` travels host order.
+NOTE: `HEADER_GC_LOGIN_KEY` (118) has NO sender in game src — dead in this
+build (client still handles it, `PhaseLogin.cpp:282-289`); not implemented.
 
 Legacy TEA re-arm in `SetSelectPhase` only when improved encryption is OFF
 (`PhaseSelect.cpp:20-22`); here it is ON (`service.h:6`). Verified.
@@ -119,8 +140,9 @@ SELECT/CREATE/DELETE, ENTERGAME, EMPIRE, marks, CLIENT_VERSION, XTRAP_ACK.
 checks `PLAYER_PER_ACCOUNT`, sends `HEADER_GD_PLAYER_LOAD`.
 - `Entergame` (`input_login.cpp:546`): needs character, `Show()`,
 `SetPhase(PHASE_GAME)`, then `HEADER_GC_TIME`, `HEADER_GC_CHANNEL`, greet.
-- Client `ConnectGameServer(slot)` (`PythonNetworkStream.cpp`):
-uses `m_akSimplePlayerInfo[slot].lAddr/wPort`. UNVERIFIED: byte order/offsets.
+- Client `ConnectGameServer(slot)` (`PythonNetworkStream.cpp:462-472`):
+  uses `m_akSimplePlayerInfo[slot].lAddr/wPort` — VERIFIED (see §4 lAddr note).
+  C# mirror: `ChannelLoginClient.GetSlotEndpoint` (slot 0..3, empty-slot guard).
 - Loading (`PhaseLoading.cpp`): `GC_MAIN_CHARACTER*`, points/item/quickslot,
 default -> `GamePhase()`; `SendEnterGame` sends `HEADER_CG_ENTERGAME=10`
 with client struct `TPacketCGEnterFrontGame` (`client Packet.h:564-567`),
