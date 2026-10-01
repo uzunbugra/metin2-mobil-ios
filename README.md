@@ -16,8 +16,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
 | Sprint 3 — Cipher Engine'leri | ✅ Tamamlandı | 13 engine'in 13'ü tamam + factory + KAT altyapısı |
 | Sprint 3 epic — Handshake (offline) | ✅ Tamamlandı | `HandshakeClient` + şifreli faz round-trip (loopback); DH2 sırası + CTR order kaynak-kanıtlı VERIFIED |
+| Sprint 4 — Auth Login (adım 1) | ✅ Tamamlandı | `AuthLoginClient`: CG_LOGIN3 → 150/7 karşılama + PanamaKey (loopback kanıtlı) |
 
-**Test: 325/325 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 362/362 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -200,6 +201,20 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   çift-yön round-trip, parçalı yazım, bozuk length/key, erken kapanış,
   pre-handshake guard, double-run guard).
 
+### Adım 18 — Auth Login (Sprint 4, adım 1 ✅)
+- Kaynak iz sürme: C→S 111 AccountConnector→input_auth→DB sorgusu; S→C yanıtlar
+  `input_db.cpp:1679-1712` (150) ve paylaşılan `LoginFailure()` helper'ı (7).
+  PanamaKey formülü iki tarafta aynı (`input_auth.cpp:151` == `AccountConnector.cpp:325`).
+- `PacketGCAuthSuccess` (150, 6B) + `PacketGCLoginFailure` (7, 10B) paket+codec'leri
+  (golden byte testli); `PacketLengthTable` 150→6, 7→10; `PacketRegistry.CreateAuthRegistry`
+  (150 Auth-only, 7 Auth+Login).
+- `AuthLoginClient` (`Network/Session`): `SendLoginAsync` + `ReceiveResultAsync`
+  (`Success(LoginKey)` / `Failure(Status)`; 150+bResult==0 → "BESAMEKEY"),
+  `ComputePanamaKey`, `GenerateClientKeys`. Parola asla exception/log'a girmez.
+- Gerçek av: `RoundTrip("BESAMEKEY")` patladı — wire buffer 8+null, 9-char status
+  tele asla gelmez (codec doğruydu, test düzeltildi).
+- Test: 325 → **362/362** (+37: AuthSuccess 10, LoginFailure 14, registry 3, framer 1, AuthLogin 9).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -232,6 +247,10 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | SEED (9) | `SeedEngineTests` | 4 RFC 4269 KAT + decrypt + round-trip |
 | Factory (14) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip, unknown-selector fail-closed |
 | Handshake (7) | `HandshakeClientTests` | Loopback tam handshake, şifreli faz çift-yön, fragmantasyon, fail-closed |
+| AuthSuccess (10) | `PacketGCAuthSuccessTests` | Golden byte, zero-result, truncation, header check |
+| LoginFailure (14) | `PacketGCLoginFailureTests` | 4 status golden byte, round-trip, trunc-safe, header check |
+| AuthRegistry (3) | `PacketRegistryTests` | 150 Auth-only, 7 Auth+Login faz izinleri |
+| AuthLogin (9) | `AuthLoginClientTests` | Loopback login success/failure, PanamaKey, parçalı yanıt, fail-closed, parola-sızıntısı yok |
 
 ## Mimari
 
@@ -258,7 +277,7 @@ Assets/Scripts/
 │   └── Logging/    — ILogger, SecretRedactor, UnityLogger
 ├── Protocol/       (Metin2.Protocol.asmdef — noEngineReferences: true)
 │   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O)
-│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketGCPhaseCodec
+│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketGCPhaseCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec
 │   ├── Constants/  — PacketHeaders, PhaseType
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
 │   │                  CipherEngineNotImplementedException, HandshakeFailedException
@@ -267,13 +286,13 @@ Assets/Scripts/
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
-│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
+│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, PacketGCAuthSuccess, PacketGCLoginFailure, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa)
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa), AuthLoginClient (111→150/7)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
-    ├── Network/    — TcpConnectionTests, HandshakeClientTests
+    ├── Network/    — TcpConnectionTests, HandshakeClientTests, AuthLoginClientTests
     └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests,
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
@@ -291,7 +310,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 325/325 başarılı ✅**
+**Son test sonucu: 362/362 başarılı ✅**
 
 ## Dokümanlar
 
@@ -304,7 +323,8 @@ dotnet test Metin2.Tests.csproj
 - [`docs/architecture.md`](docs/architecture.md) — Workspace haritası ve build toolchain'leri
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
-- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — Makine-okunur paket kataloğu
+- [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
+- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 150/7 eklendi (VERIFIED), 111 VERIFIED
 
 ## Bilinen Eksikler (UNVERIFIED)
 
@@ -313,9 +333,9 @@ dotnet test Metin2.Tests.csproj
 
 ## Sonraki Adım
 
-**Auth login akışı**: `HandshakeClient` sonrası `CG_LOGIN3` (111) gönderimi → GC login
-yanıtları (`GC_AUTH_SUCCESS` 150 / `GC_LOGIN_FAILURE` 7) codec + phase-aware registry
-kapsamı; ardından server/channel list ve character select (Sprint 4).
+**Channel-core login**: `AuthLoginClient` sonrası alınan `LoginKey` ile `CG_LOGIN2`
+(109) gönderimi → `GC_LOGIN_KEY` (118) + character list (`GC_LOGIN_SUCCESS` 6/32,
+`TSimplePlayer` layout — `tables.h` gerekli) → select/create → `ENTERGAME` (10).
 
 ## Kurallar
 

@@ -12,7 +12,26 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - `HandshakeClientTests` (7 loopback fake-server testi): tam handshake + şifreli
   `GC_PHASE` çift-yön round-trip, parçalı yazımlar, bozuk agreed-length/key,
   handshake-ortası kapanış, handshake-öncesi guard, çift-çalıştırma guard'ı.
-- Test: 318 → 325 (+7).
+- Auth-core login istemcisi (Sprint 4, adım 1): `AuthLoginClient`
+  (`Metin2.Network.Session`) — handshake'li kanaldan CG_LOGIN3 (111, 65B) gönderimi,
+  150/7 karşılama (`AuthLoginResult`: `Success(LoginKey)` / `Failure(Status)`;
+  150+bResult==0 → "BESAMEKEY", `AccountConnector.cpp:321` aynası),
+  `ComputePanamaKey` (server `input_auth.cpp:151` == client
+  `AccountConnector.cpp:325`), `GenerateClientKeys` (login başına taze 4 word).
+- `PacketGCAuthSuccess` (150, 6B) + codec + 9 test (golden, zero-result, truncation, header).
+- `PacketGCLoginFailure` (7, 10B, status[9]) + codec + 13 test (NOID/ALREADY/WRONGPWD/SHUTDOWN
+  golden, round-trip, trunc-safe, header).
+- `PacketLengthTable`: 150→6, 7→10 (kaynak-doğrulanmış boyutlar); `PacketRegistry.CreateAuthRegistry`
+  (150 Auth-only, 7 Auth+Login — paylaşılan `LoginFailure()` helper'ı, `input.cpp:177-188`).
+- `AuthLoginClientTests` (9 loopback): success (login/password/key assertion + PanamaKey
+  eşleşmesi), WRONGPWD, BESAMEKEY, parçalı yanıt, yanlış-phase header fail-closed,
+  boş-credential guard (parola sızıntısı yok), ctor guard, PanamaKey formülü, key tazeliği.
+- `docs/sprints/SPRINT_04-auth-login.md`; `packet-catalog.json`: 150/7 eklendi (VERIFIED),
+  111 VERIFIED'a yükseltildi; `connection-flow.md` §3 auth yanıt yolları VERIFIED.
+- Test: 325 → 362 (+37).
+### Düzeltilen (test)
+- `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
+  asla gelmez (codec doğruydu, test yanlıştı).
 ### Doğrulanan (kaynak-kanıt, UNVERIFIED kapatıldı)
 - DH2 agreed yarı sırası = static || ephemeral — VERIFIED (`dh2.h:34-35,59-62` +
   `cipher.cpp:393` çağrı sırası + loopback taraflar-arası aynı secret).

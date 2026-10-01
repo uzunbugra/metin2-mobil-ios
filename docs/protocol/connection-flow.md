@@ -61,14 +61,36 @@ implicit counter/IV from the DH2 shared secret is UNVERIFIED until
 Handshake/key agreement done -> server `PHASE_AUTH` (`input.cpp:574`),
 client `SetLoginPhase` (`PhaseLogin.cpp:73-122`).
 
-Client sends `HEADER_CG_LOGIN3=111` (`game/src/packet.h:86`):
+Client sends `HEADER_CG_LOGIN3=111` (`game/src/packet.h:86`) on
+`GC_PHASE(PHASE_AUTH)` (`AccountConnector.cpp:166-212`, adwClientKey =
+`g_adwEncryptKey[4]`):
 `TPacketCGLogin3{header,login[31],passwd[17],adwClientKey[4]}`
-(`packet.h:515-523`; lengths `common/length.h:9-10`).
+(`packet.h:515-523`; lengths `common/length.h:9-10`; client mirror
+`UserInterface/Packet.h:511-517`, `ID_MAX_NUM=30`/`PASS_MAX_NUM=16`).
+C# codec + 65B golden tests: `PacketCGLogin3Codec`, `PacketCGLogin3Tests`.
 
-Server `CInputAuth::Login` (`input_auth.cpp`): require `g_bAuthServer`,
-validate string, reject duplicate, `CreateLoginKey`, `dwPanamaKey = key XOR ckeys`,
-`DBManager::ReturnQuery(QID_AUTH_LOGIN, SELECT ... FROM account ...)`.
-Reply path via `input_db.cpp`. UNVERIFIED: exact GC reply ids for auth path.
+Server `CInputAuth::Login` (`input_auth.cpp:102-200`): require `g_bAuthServer`,
+trim+lower login, validate string (`NOID` on bad chars), reject `SHUTDOWN`
+/ duplicate `ALREADY`, then `CreateLoginKey`, `dwPanamaKey = key XOR ckeys[4]`
+(`input_auth.cpp:151`), `DBManager::ReturnQuery(QID_AUTH_LOGIN, SELECT ... FROM account ...)`.
+Reply path via `input_db.cpp:1679-1712` — VERIFIED, no longer UNVERIFIED:
+- Success: `HEADER_GC_AUTH_SUCCESS=150` (`packet.h:266`),
+  `TPacketGCAuthSuccess{bHeader,dwLoginKey,bResult}` (`packet.h:849-854`,
+  1+4+1 = 6B; client mirror `UserInterface/Packet.h:2370-2375`).
+  Client `AccountConnector.cpp:312-337`: bResult==0 → `OnLoginFailure("BESAMEKEY")`;
+  else PanamaKey = key ^ clientKeys[4] (same formula as server),
+  `DecryptPackIV`, `SetLoginKey`, connect to channel, disconnect auth.
+- Failure: `HEADER_GC_LOGIN_FAILURE=7` (`packet.h:126`),
+  `TPacketGCLoginFailure{header,szStatus[9]}` (`packet.h:856-860`,
+  `ACCOUNT_STATUS_MAX_LEN=8` in `common/length.h:12`; client mirror
+  `LOGIN_STATUS_MAX_LEN=8`, `UserInterface/Packet.h:1136-1141`).
+  Shared helper `LoginFailure()` (`input.cpp:177-188`, `strlcpy` truncation-safe);
+  observed statuses: `NOID`, `ALREADY`, `WRONGPWD`, `SHUTDOWN` (+ DB status
+  passthrough `input_db.cpp:142`). Client `PhaseLogin.cpp:204-212` and
+  `AccountConnector.cpp:340-352` surface `szStatus` to the login UI.
+- Wire rule: both replies travel ENCRYPTED (post-activation stream cipher,
+  `desc.cpp:460-461` / `NetStream.cpp:109`); max status is 8 chars + null
+  (a 9-char status can never arrive — proven by a failing-then-fixed test).
 
 Client login RX (`PhaseLogin.cpp:11-71`): GC_LOGIN_SUCCESS3/4,
 GC_LOGIN_FAILURE, GC_EMPIRE, GC_LOGIN_KEY, GC_PING, HYBRIDCRYPT.
