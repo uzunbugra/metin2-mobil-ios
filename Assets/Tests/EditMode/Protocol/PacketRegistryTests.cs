@@ -250,11 +250,14 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateGameRegistry();
 
-            Assert.AreEqual(19, registry.Count);
+            Assert.AreEqual(22, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_POINTS, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_SKILL_LEVEL, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_ADD, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_DEL, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_ITEM_SET, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_ITEM_DEL, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_ITEM_UPDATE, out _));
             // World-entry entries survive.
             Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, PhaseType.Loading));
         }
@@ -281,6 +284,23 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DEL, PhaseType.Game));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_ADD, PhaseType.Loading));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DEL, PhaseType.Select));
+        }
+
+        [Test]
+        public void ItemPackets_AllowedInGameAndLoadingPhases()
+        {
+            // Loading bundle (ItemLoad, still LOADING) and live play
+            // (pickup/move/equip in Game) share the same frames.
+            var registry = PacketRegistry.CreateGameRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_SET, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_SET, PhaseType.Loading));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_DEL, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_DEL, PhaseType.Loading));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_UPDATE, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_UPDATE, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_SET, PhaseType.Select));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_UPDATE, PhaseType.Handshake));
         }
     }
 }

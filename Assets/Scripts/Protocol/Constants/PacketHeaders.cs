@@ -52,5 +52,10 @@ namespace Metin2.Protocol.Constants
         public const byte HEADER_GC_SKILL_LEVEL = 76;      // 0x4c (server packet.h:186; client Packet.h:212 SKILL_LEVEL_NEW)
         public const byte HEADER_GC_CHARACTER_ADD = 1;     // 0x01 (server packet.h:118; client Packet.h:143)
         public const byte HEADER_GC_CHARACTER_DEL = 2;     // 0x02 (server packet.h:119; client Packet.h:144)
+
+        // Items
+        public const byte HEADER_GC_ITEM_DEL = 20;         // 0x14 (server packet.h:144; client Packet.h non-GAIDEN branch)
+        public const byte HEADER_GC_ITEM_SET = 21;         // 0x15 (server packet.h:145; client Packet.h SET2)
+        public const byte HEADER_GC_ITEM_UPDATE = 25;      // 0x19 (server packet.h:148; client Packet.h)
     }
 }

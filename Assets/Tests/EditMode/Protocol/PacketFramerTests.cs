@@ -321,5 +321,35 @@ namespace Metin2.Tests.EditMode.Protocol
             CollectionAssert.AreEqual(del, f4);
             Assert.AreEqual(0, framer.BufferedBytes);
         }
+
+        [Test]
+        public void ItemPackets_FrameAtSourceVerifiedLengths()
+        {
+            // 21 = 51B (packet.h:1073-1084), 20 = 42B (packet.h:1063-1071),
+            // 25 = 38B (packet.h:1108-1115).
+            var framer = new PacketFramer();
+            byte[] set = new byte[PacketGCItemSet.PacketSize];
+            set[0] = PacketGCItemSet.PacketHeader;
+            byte[] clear = new byte[PacketGCItemDel.PacketSize];
+            clear[0] = PacketGCItemDel.PacketHeader;
+            byte[] update = new byte[PacketGCItemUpdate.PacketSize];
+            update[0] = PacketGCItemUpdate.PacketHeader;
+
+            Assert.AreEqual(51, set.Length);
+            Assert.AreEqual(42, clear.Length);
+            Assert.AreEqual(38, update.Length);
+
+            framer.Append(set);
+            framer.Append(clear);
+            framer.Append(update);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(set, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(clear, f2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f3));
+            CollectionAssert.AreEqual(update, f3);
+            Assert.AreEqual(0, framer.BufferedBytes);
+        }
     }
 }

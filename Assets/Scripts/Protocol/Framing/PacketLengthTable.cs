@@ -172,6 +172,31 @@ namespace Metin2.Protocol.Framing
                 return true;
             }
 
+            if (header == PacketHeaders.HEADER_GC_ITEM_SET)
+            {
+                // sizeof(server TPacketGCItemSet) = 1+3+4+1+4+4+1+12+21 = 51,
+                // packet.h:1073-1084 (client TPacketGCItemSet2, Packet.h:1673-1684).
+                length = 51;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_ITEM_DEL)
+            {
+                // sizeof(server TPacketGCItemDelDeprecated) = 1+3+4+1+12+21 = 42,
+                // packet.h:1063-1071 (client non-GAIDEN TPacketGCItemSet, Packet.h:1663-1671).
+                // NOT the 2-byte packet_item_del — nothing sends that here.
+                length = 42;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_ITEM_UPDATE)
+            {
+                // sizeof(TPacketGCItemUpdate) = 1+3+1+12+21 = 38,
+                // packet.h:1108-1115 (client mirror Packet.h:1703-1710).
+                length = 38;
+                return true;
+            }
+
             length = 0;
             return false;
         }

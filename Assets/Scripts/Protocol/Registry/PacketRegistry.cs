@@ -342,6 +342,27 @@ namespace Metin2.Protocol.Registry
                 5,
                 allowedPhases: new[] { PhaseType.Game }));
 
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_ITEM_SET,
+                "HEADER_GC_ITEM_SET",
+                PacketDirection.ServerToClient,
+                51,
+                allowedPhases: new[] { PhaseType.Game, PhaseType.Loading }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_ITEM_DEL,
+                "HEADER_GC_ITEM_DEL",
+                PacketDirection.ServerToClient,
+                42,
+                allowedPhases: new[] { PhaseType.Game, PhaseType.Loading }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_ITEM_UPDATE,
+                "HEADER_GC_ITEM_UPDATE",
+                PacketDirection.ServerToClient,
+                38,
+                allowedPhases: new[] { PhaseType.Game, PhaseType.Loading }));
+
             return registry;
         }
     }
