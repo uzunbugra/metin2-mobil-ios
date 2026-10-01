@@ -57,5 +57,11 @@ namespace Metin2.Protocol.Constants
         public const byte HEADER_GC_ITEM_DEL = 20;         // 0x14 (server packet.h:144; client Packet.h non-GAIDEN branch)
         public const byte HEADER_GC_ITEM_SET = 21;         // 0x15 (server packet.h:145; client Packet.h SET2)
         public const byte HEADER_GC_ITEM_UPDATE = 25;      // 0x19 (server packet.h:148; client Packet.h)
+
+        // Movement
+        public const byte HEADER_CG_MOVE = 7;              // 0x07 (server packet.h:17; client Packet.h:18 CHARACTER_MOVE)
+        public const byte HEADER_CG_SYNC_POSITION = 8;    // 0x08 (server packet.h:18; client Packet.h:19)
+        public const byte HEADER_GC_MOVE = 3;              // 0x03 (server packet.h:120; client Packet.h:145 CHARACTER_MOVE)
+        public const byte HEADER_GC_SYNC_POSITION = 5;    // 0x05 (server packet.h:122; client Packet.h:147)
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using Metin2.Protocol.Constants;
+using Metin2.Protocol.Framing;
 using Metin2.Protocol.Registry;
 
 namespace Metin2.Tests.EditMode.Protocol
@@ -250,7 +251,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateGameRegistry();
 
-            Assert.AreEqual(22, registry.Count);
+            Assert.AreEqual(24, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_POINTS, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_SKILL_LEVEL, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_ADD, out _));
@@ -301,6 +302,23 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_UPDATE, PhaseType.Loading));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_SET, PhaseType.Select));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_ITEM_UPDATE, PhaseType.Handshake));
+        }
+
+        [Test]
+        public void MoveAndSync_AllowedOnlyInGamePhase()
+        {
+            // GC_MOVE broadcast (input_main.cpp:1651-1663) and GC sync batches
+            // are Game-phase view traffic. Sync descriptor length is the
+            // 195-byte upper bound (dynamic wSize, framed by PacketFramer).
+            var registry = PacketRegistry.CreateGameRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_MOVE, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_SYNC_POSITION, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_MOVE, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_SYNC_POSITION, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_MOVE, PhaseType.Select));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_SYNC_POSITION, out PacketDescriptor sync));
+            Assert.AreEqual(PacketLengthTable.MaxSyncPacketSize, sync.Length);
         }
     }
 }

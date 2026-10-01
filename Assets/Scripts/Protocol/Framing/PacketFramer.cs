@@ -9,10 +9,13 @@ namespace Metin2.Protocol.Framing
     /// Mirrors the verified framing rules (docs/protocol/protocol-inventory.md §1):
     /// - TCP is a byte stream: one read may hold a fragment, one frame, or many frames.
     /// - 0x00 bytes are padding and are skipped (server input.cpp:78-79, client CheckPacket).
-    /// - Frame lengths come from <see cref="PacketLengthTable"/>; unknown headers are
-    ///   dropped one byte at a time and counted in <see cref="DroppedBytes"/> so the
-    ///   session layer can close the connection on sustained garbage (server maps
-    ///   unknown headers to PHASE_CLOSE, input.cpp:80-87).
+    /// - Fixed frame lengths come from <see cref="PacketLengthTable"/>; the one
+    ///   dynamic frame (GC_SYNC_POSITION, header 0x05) carries its wSize inline
+    ///   (server packet.h:1317-1322, validated like input_main.cpp:1786-1802).
+    /// - Unknown headers and malformed dynamic sizes are dropped one byte at a
+    ///   time and counted in <see cref="DroppedBytes"/> so the session layer
+    ///   can close the connection on sustained garbage (server maps unknown
+    ///   headers to PHASE_CLOSE, input.cpp:80-87).
     /// - The buffer never grows past <see cref="MaxFrameLength"/> (MAX_INPUT_LEN 65536,
     ///   desc.h:10-12); excess Append calls throw instead of allocating unbounded memory.
     ///
@@ -99,6 +102,26 @@ namespace Metin2.Protocol.Framing
 
                 if (!PacketLengthTable.TryGetFixedLength(header, out int length))
                 {
+                    if (PacketLengthTable.IsSyncHeader(header))
+                    {
+                        // Dynamic sync frame: dequeue when complete, wait when
+                        // fragmented, drop on malformed wSize (see below).
+                        if (TryDequeueSyncFrame(out frame, out bool needMoreBytes))
+                        {
+                            return true;
+                        }
+
+                        if (needMoreBytes)
+                        {
+                            return false;
+                        }
+
+                        _start++;
+                        DroppedBytes++;
+                        CompactIfNeeded();
+                        continue;
+                    }
+
                     _start++;
                     DroppedBytes++;
                     CompactIfNeeded();
@@ -124,6 +147,46 @@ namespace Metin2.Protocol.Framing
             _buffer.Clear();
             _start = 0;
             DroppedBytes = 0;
+        }
+
+        /// <summary>
+        /// Attempts to dequeue one GC_SYNC_POSITION frame starting at
+        /// <see cref="_start"/>. Returns true with the frame when complete;
+        /// false with needMoreBytes=true when fragmented; false with
+        /// needMoreBytes=false when wSize is malformed (caller drops a byte).
+        /// Mirrors the server guards (input_main.cpp:1786-1802): short wSize
+        /// and misaligned payloads are rejected, never trusted for allocation.
+        /// </summary>
+        private bool TryDequeueSyncFrame(out byte[] frame, out bool needMoreBytes)
+        {
+            frame = null;
+            needMoreBytes = false;
+
+            if (BufferedBytes < PacketLengthTable.SyncHeaderSize)
+            {
+                needMoreBytes = true;
+                return false;
+            }
+
+            int declared = _buffer[_start + 1] | (_buffer[_start + 2] << 8);
+            if (declared < PacketLengthTable.SyncHeaderSize
+                || declared > PacketLengthTable.MaxSyncPacketSize
+                || ((declared - PacketLengthTable.SyncHeaderSize) % PacketLengthTable.SyncElementSize) != 0)
+            {
+                return false;
+            }
+
+            if (BufferedBytes < declared)
+            {
+                needMoreBytes = true;
+                return false;
+            }
+
+            frame = new byte[declared];
+            _buffer.CopyTo(_start, frame, 0, declared);
+            _start += declared;
+            CompactIfNeeded();
+            return true;
         }
 
         private void CompactIfNeeded()

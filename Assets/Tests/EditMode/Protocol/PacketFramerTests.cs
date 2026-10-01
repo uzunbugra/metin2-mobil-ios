@@ -351,5 +351,55 @@ namespace Metin2.Tests.EditMode.Protocol
             CollectionAssert.AreEqual(update, f3);
             Assert.AreEqual(0, framer.BufferedBytes);
         }
+
+        [Test]
+        public void SyncFrame_FragmentedWaits_CoalescedSplits()
+        {
+            // Dynamic wSize framing (packet.h:1317-1322): 2 elements = 27B.
+            var framer = new PacketFramer();
+            byte[] sync = PacketGCSyncPositionCodec.Serialize(new PacketGCSyncPosition(
+                new SyncPositionElement[]
+                {
+                    new SyncPositionElement { Vid = 1, X = 10, Y = 20 },
+                    new SyncPositionElement { Vid = 2, X = 30, Y = 40 }
+                }));
+            Assert.AreEqual(27, sync.Length);
+
+            byte[] part1 = new byte[10];
+            byte[] part2 = new byte[sync.Length - 10];
+            System.Array.Copy(sync, 0, part1, 0, 10);
+            System.Array.Copy(sync, 10, part2, 0, part2.Length);
+
+            framer.Append(part1);
+            Assert.IsFalse(framer.TryDequeue(out byte[] _));
+
+            framer.Append(part2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] frame));
+            CollectionAssert.AreEqual(sync, frame);
+        }
+
+        [Test]
+        public void SyncFrame_MalformedSize_DroppedAndCounted()
+        {
+            var framer = new PacketFramer();
+            // wSize 7: (7-3) % 12 != 0 -> invalid; trailing bytes (0x07 needs
+            // 10B, only 1 buffered) cannot complete either.
+            framer.Append(new byte[] { 0x05, 0x07, 0x00 });
+
+            Assert.IsFalse(framer.TryDequeue(out byte[] _));
+            Assert.Greater(framer.DroppedBytes, 0);
+        }
+
+        [Test]
+        public void SyncFrame_OverClampSize_Dropped()
+        {
+            var framer = new PacketFramer();
+            // wSize claims 17 elements (> 16 clamp) -> invalid.
+            int badSize = 3 + (12 * 17);
+            framer.Append(new byte[] { 0x05, (byte)(badSize & 0xFF), (byte)(badSize >> 8) });
+
+            Assert.IsFalse(framer.TryDequeue(out byte[] _));
+            Assert.Greater(framer.DroppedBytes, 0);
+        }
     }
 }

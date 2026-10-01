@@ -16,6 +16,22 @@ namespace Metin2.Protocol.Framing
     /// </summary>
     public static class PacketLengthTable
     {
+        /// <summary>
+        /// GC_SYNC_POSITION framing limits (packet.h:1317-1322, input_main.cpp:1809-1818):
+        /// 3-byte header + N x 12-byte elements, server-clamped to 16 elements.
+        /// </summary>
+        public const int SyncHeaderSize = 3;
+
+        public const int SyncElementSize = 12;
+
+        public const int MaxSyncElements = 16;
+
+        public const int MaxSyncPacketSize = SyncHeaderSize + (SyncElementSize * MaxSyncElements); // 195 bytes
+
+        public static bool IsSyncHeader(byte header)
+        {
+            return header == PacketHeaders.HEADER_GC_SYNC_POSITION;
+        }
         public static bool TryGetFixedLength(byte header, out int length)
         {
             // 0xff is shared by HEADER_CG_HANDSHAKE / HEADER_GC_HANDSHAKE (both 255);
@@ -138,6 +154,14 @@ namespace Metin2.Protocol.Framing
                 // sizeof(TPacketGCChannel) = 1+1 = 2, server packet.h:1995-1999
                 // (client mirror UserInterface/Packet.h:2377-2381).
                 length = 2;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_MOVE)
+            {
+                // sizeof(TPacketGCMove) = 1+3+4+4+4+4+4 = 24,
+                // server packet.h:1288-1299 (client mirror UserInterface/Packet.h:1888-1899).
+                length = 24;
                 return true;
             }
 

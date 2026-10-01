@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Metin2.Protocol.Constants;
+using Metin2.Protocol.Framing;
 
 namespace Metin2.Protocol.Registry
 {
@@ -362,6 +363,20 @@ namespace Metin2.Protocol.Registry
                 PacketDirection.ServerToClient,
                 38,
                 allowedPhases: new[] { PhaseType.Game, PhaseType.Loading }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_MOVE,
+                "HEADER_GC_MOVE",
+                PacketDirection.ServerToClient,
+                24,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_SYNC_POSITION,
+                "HEADER_GC_SYNC_POSITION",
+                PacketDirection.ServerToClient,
+                PacketLengthTable.MaxSyncPacketSize,
+                allowedPhases: new[] { PhaseType.Game }));
 
             return registry;
         }
