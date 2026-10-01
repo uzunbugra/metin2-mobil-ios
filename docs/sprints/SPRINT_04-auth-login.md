@@ -126,6 +126,9 @@ Dersler:
   header hatası değil — test buna göre yazıldı.
 - Test: 450 → 476 (+26).
 
+Sprint 4 burada kapanır (auth → channel → select → world entry zinciri tamam).
+Devamı `SPRINT_05-game-world.md`'dedir.
+
 ## Sıradaki (Sprint 4 devam → Sprint 5)
 
 - Loading bundle: points/skill/quickslot/item paketleri (TPlayerItem iz sürme).

@@ -58,7 +58,16 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - `WorldEntryClientTests` (4 loopback): tam giriş turu, ters-sıra ve yanlış-faz fail-closed.
 - `packet-catalog.json`: 113/106/121 VERIFIED (26 paket); `connection-flow.md` §5
   PlayerLoad→main-char sırası + `time_t` ABI notu.
-- Test: 450 → 476 (+26).
+- Loading stats + spawn (Sprint 5, adım 1): `GameWorldClient`
+  (`Metin2.Network.Session`) — points→skills (Loading) + add/del spawn event (Game).
+- `PacketGCPoints` (16, 1021B) + `PacketGCSkillLevel` (76, 1531B, skill entry 6B) +
+  `PacketGCCharacterAdd` (1, 35B, float angle) + `PacketGCCharacterDelete` (2, 5B).
+- `PacketReader/Writer` float desteği (netstandard2.1 uyumlu BitConverter yolu).
+- `PacketLengthTable`: 16→1021, 76→1531, 1→35, 2→5; `PacketRegistry.CreateGameRegistry`
+  (16/76 Loading-only, 1/2 Game-only).
+- `GameWorldClientTests` (5 loopback): stats sırası, add→del eventleri, ters-sıra fail-closed.
+- `packet-catalog.json`: 16/76/1/2 VERIFIED (30 paket).
+- Test: 476 → 511 (+35).
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).

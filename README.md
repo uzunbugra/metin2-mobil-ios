@@ -20,8 +20,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 4 — Channel Login (adım 2) | ✅ Tamamlandı | `ChannelLoginClient`: CG_LOGIN2 → empire → 4 slot + endpoint (loopback kanıtlı) |
 | Sprint 4 — Select Fazı (adım 3) | ✅ Tamamlandı | `CharacterSelectClient`: select/create/delete + ENTERGAME (loopback kanıtlı) |
 | Sprint 4 — World Entry (adım 4) | ✅ Tamamlandı | `WorldEntryClient`: main-char → ENTERGAME → TIME+CHANNEL (loopback kanıtlı) |
+| Sprint 5 — Loading Stats + Spawn (adım 1) | ✅ Tamamlandı | `GameWorldClient`: points/skills + add/del eventleri (loopback kanıtlı) |
 
-**Test: 476/476 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 511/511 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -32,7 +33,8 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
   - `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game
   - `docs/protocol/protocol-inventory.md` — 60+ CG, 80+ GC header, GD/DG/GG header'ları, framing kuralları
-  - `docs/protocol/packet-catalog.json` — 26 bağlantı paketi, makine-okunur katalog
+  - `docs/protocol/packet-catalog.json` — 30 bağlantı paketi, makine-okunur katalog
+- [`docs/sprints/SPRINT_05-game-world.md`](docs/sprints/SPRINT_05-game-world.md) — Loading stats + spawn kaydı
 - Commit: `dac18f6`
 
 ### Adım 1 — Unity Proje Altyapısı (Sprint 1)
@@ -256,6 +258,15 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 - `WorldEntryClient`: 113 (Loading) → 10 → 106+121 (Game, sıra dayatmalı).
 - Test: 450 → **476/476** (+26: MainCharacter 6, Time 6, Channel 6, registry 3, framer 1, WorldEntry 4).
 
+### Adım 22 — Loading Stats + Spawn (Sprint 5, adım 1 ✅)
+- Kaynak iz sürme: `PlayerLoad` devamı (points + skills, quickslot wire'a çıkmaz) →
+  item'lar ayrı `DG_ITEM_LOAD` yolundan (sonraki adım); spawn `Show` → 1/35B.
+- `PacketGCPoints` (1021B) + `PacketGCSkillLevel` (1531B, entry 6B) +
+  `PacketGCCharacterAdd` (35B, float angle) + `PacketGCCharacterDelete` (5B).
+- Buffer'a float eklendi (netstandard2.1'de BinaryPrimitives yok).
+- `GameWorldClient`: stats sırası (16→76) + spawn event (1/2, Game-fazında).
+- Test: 476 → **511/511** (+35: Points 6, Skill 7, Add 6, Del 5, Buffer 2, registry 3, framer 1, World 5).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -302,6 +313,9 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | SelectFlow (6) | `CharacterSelectClientTests` | Loopback select→create→delete→entergame, fail paths, validasyon |
 | WorldEntry-Codecs (18) | `PacketGCMainCharacterTests`, `PacketGCTimeTests`, `PacketGCChannelTests` | Golden layout, struct-order, legacy-15 reddi, header check |
 | WorldEntry (4) | `WorldEntryClientTests` | Loopback main-char→entergame→time+channel, sıra/faz fail-closed |
+| Stats (13) | `PacketGCPointsTests`, `PacketGCSkillLevelTests` | Offset spot-check, full round-trip, truncation, header check |
+| Spawn (11) | `PacketGCCharacterAddTests`, `PacketGCCharacterDeleteTests` | Float golden byte, round-trip, truncation, header check |
+| GameWorld (5) | `GameWorldClientTests` | Loopback stats sırası, add→del eventleri, fail-closed |
 
 ## Mimari
 
@@ -327,8 +341,8 @@ Assets/Scripts/
 │   ├── Config/     — EnvironmentType, NetworkConfig
 │   └── Logging/    — ILogger, SecretRedactor, UnityLogger
 ├── Protocol/       (Metin2.Protocol.asmdef — noEngineReferences: true)
-│   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O)
-│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec
+│   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O + float)
+│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec
 │   ├── Constants/  — PacketHeaders, PhaseType
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
 │   │                  CipherEngineNotImplementedException, HandshakeFailedException
@@ -337,13 +351,13 @@ Assets/Scripts/
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
-│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, IPacket
+│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121)
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
-    ├── Network/    — TcpConnectionTests, HandshakeClientTests, AuthLoginClientTests, ChannelLoginClientTests, CharacterSelectClientTests, WorldEntryClientTests
+    ├── Network/    — TcpConnectionTests, HandshakeClientTests, AuthLoginClientTests, ChannelLoginClientTests, CharacterSelectClientTests, WorldEntryClientTests, GameWorldClientTests
     └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests,
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
@@ -361,7 +375,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 476/476 başarılı ✅**
+**Son test sonucu: 511/511 başarılı ✅**
 
 ## Dokümanlar
 
@@ -375,7 +389,7 @@ dotnet test Metin2.Tests.csproj
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
-- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 109/150/7/90/32/6/4/5/10/8/9/10/11/113/106/121 VERIFIED (26 paket)
+- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 30 VERIFIED paket (16/76/1/2 eklendi)
 
 ## Bilinen Eksikler (UNVERIFIED)
 
@@ -384,8 +398,8 @@ dotnet test Metin2.Tests.csproj
 
 ## Sonraki Adım
 
-**Loading bundle**: points/skill/quickslot/item paketleri (`PlayerLoad` devamı,
-`char.cpp` PointsPacket/SkillLevelPacket) + ilk NPC/entity spawn iz sürme.
+**Item sistemi**: `TPlayerItem` + ITEM_SET/UPDATE akışı (`ItemLoad` →
+`AddToCharacter`), ardından hareket (SYNC_POSITION/MOVE) — vertical slice'a giriş.
 
 ## Kurallar
 
