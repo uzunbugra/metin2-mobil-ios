@@ -70,3 +70,38 @@ Dersler:
 - **Null vs boş slot adı**: boş slot serialize'da sıfırlanır, deserialize'da
   `""` döner; `Equals` null/"" denkliğini kabul eder.
 - Test: 362 → 397 (+35).
+
+## Adım 3 — Select fazı: select/create/delete + ENTERGAME (tamamlandı)
+
+İz sürme: select yanıtsızdır (`CharacterSelect`, `input_login.cpp:222-255` →
+sadece DB'ye `GD_PLAYER_LOAD`); empire seçimi `Empire()` (`input_login.cpp:792-822`,
+≥4 → CLOSE); create kuralları `CharacterCreate` (`input_login.cpp:416-499`:
+ad > 12 → 9/t0, bozuk ad/şekil → 9/t1 Canada yoksa 9/t0, bozuk job → 9/t0);
+yanıtlar `PlayerCreateSuccess` (8, `input_db.cpp:221-227`),
+`PlayerDeleteSuccess` (10+index, `input_db.cpp:285-286`),
+`PlayerDeleteFail` (çıplak 11, `input_db.cpp:296`).
+İstemci dispatch aynası: `PhaseSelect.cpp:41-140` + sends `145-231` +
+sonuçlar `233-286`. SELECT/LOGIN aynı input processor'ı paylaşır
+(`desc.cpp:539-547`).
+
+| İş | Dosya | Test |
+|---|---|---|
+| CG select (6, 2B) / create (4, 34B) / delete (5, 10B) / entergame (10, 1B) + codec'ler | `Packets/PacketCGCharacter{Select,Create,Delete}.cs`, `PacketCGEnterGame.cs` + 4 codec | 4 fixture (22 test) |
+| GC create-ok (8, 65B) / create-fail (9, 2B) / delete-ok (10, 2B) / delete-fail (11, 1B) + codec'ler | 4 paket + 4 codec | 4 fixture (22 test) |
+| Framer + registry | `PacketLengthTable` (+8→65, +9→2, +10→2, +11→1), `CreateSelectRegistry` (8/9/10/11 Select-only) | framer +1, registry +2 |
+| Select orkestrasyonu | `Network/Session/CharacterSelectClient.cs` | `CharacterSelectClientTests` (6 loopback) |
+
+Dersler:
+- **Select'in yanıtı yoktur**: `CharacterSelect` yalnızca DB'ye yazar; istemci
+  sonraki adıma (ENTERGAME) kendi kararıyla geçer. `Await*` yalnızca
+  create/delete içindir — API bunu tiplerle dayatır.
+- **9-header'ının 1-byte quirk'i** (`input_db.cpp:199`): framer 9→2 bekler,
+  C++ istemci de `Recv(2)`'de takılır — parite korunur, workaround yok.
+- **11'in adı yanıltır**: tetikleyici boş slottur (`input_login.cpp:520-525`),
+  yalnızca social-id uyuşmazlığı değil.
+- Test: 397 → 450 (+53).
+
+## Sıradaki (Sprint 4 devam)
+
+- Loading/world entry: ENTERGAME sonrası GC_TIME/GC_CHANNEL/greet + spawn
+  paketleri (`input_login.cpp:546-579` devamı), entity spawn/despawn iz sürme.

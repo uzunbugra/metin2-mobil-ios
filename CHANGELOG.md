@@ -38,7 +38,18 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   FULL status, parçalı 329B, ters-sıra fail-closed, guard'lar.
 - `packet-catalog.json`: 90 eklendi, 109/32 VERIFIED'a yükseltildi (16 paket);
   `connection-flow.md` §4-§5: empire/select sırası, lAddr byte order ve ölü 118 notu.
-- Test: 362 → 397 (+35).
+- Select fazı (Sprint 4, adım 3): `CharacterSelectClient`
+  (`Metin2.Network.Session`) — select (yanıtsız) / create → 8/9 / delete → 10/11 /
+  empire seçimi / ENTERGAME gönderimi.
+- CG select (6, 2B) + create (4, 34B) + delete (5, 10B) + entergame (10, 1B) paket+codec;
+  GC create-ok (8, 65B) + create-fail (9, 2B) + delete-ok (10, 2B) + delete-fail (11, 1B).
+- `PacketLengthTable`: 8→65, 9→2, 10→2, 11→1; `PacketRegistry.CreateSelectRegistry`
+  (8/9/10/11 Select-only; SELECT/LOGIN aynı input processor, `desc.cpp:539-547`).
+- `CharacterSelectClientTests` (6 loopback): select→create→delete→entergame tam tur,
+  create-fail tipi, delete-fail, yanlış-tür fail-closed, validasyon guard'ları.
+- `packet-catalog.json`: 7 select paketi eklendi, 10 VERIFIED (23 paket);
+  `connection-flow.md` §5 select/create/delete/ENTERGAME yolları + 1-byte quirk'ler.
+- Test: 397 → 450 (+53).
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).

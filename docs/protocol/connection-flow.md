@@ -133,20 +133,48 @@ Legacy TEA re-arm in `SetSelectPhase` only when improved encryption is OFF
 
 ## 5. Select -> loading -> game
 
-Dispatch `CInputLogin::Analyze` (`input_login.cpp:994-1096`):
-SELECT/CREATE/DELETE, ENTERGAME, EMPIRE, marks, CLIENT_VERSION, XTRAP_ACK.
+Dispatch `CInputLogin::Analyze` (`input_login.cpp:994-1096`, SELECT and LOGIN
+share `m_inputLogin`, `desc.cpp:539-547`); client dispatch mirror
+`PhaseSelect.cpp:41-140`.
 
+- Select: C→S `HEADER_CG_CHARACTER_SELECT=6` (`packet.h:16`),
+  `{header,index}` 2B (`packet.h:530-534`; client `Packet.h:529-533`, sent
+  `PhaseSelect.cpp:161-175`) → `CharacterSelect` (`input_login.cpp:222-255`:
+  account/index guards, then `HEADER_GD_PLAYER_LOAD` to DB). NO direct reply.
+- Empire (empire-less accounts): C→S `HEADER_CG_EMPIRE=90`
+  (`TPacketCGEmpire{bHeader,bEmpire}`, client `Packet.h:2075-2081`) →
+  `Empire()` (`input_login.cpp:792-822`: ≥ EMPIRE_MAX_NUM=4 (`length.h:19`) →
+  CLOSE; else `GD_EMPIRE_SELECT` to DB).
+- Create: C→S `HEADER_CG_CHARACTER_CREATE=4` (`packet.h:14`),
+  `{header,index,name[25],job u16,shape,con,int,str,dex}` 34B
+  (`packet.h:543-554`; client `Packet.h:1143-1154`, sent `PhaseSelect.cpp:194-215`)
+  → `CharacterCreate` (`input_login.cpp:416-499`: name strlen > 12 → 9/t0;
+  bad name/shape → 9/t1 Canada else 9/t0; bad job → 9/t0; else DB).
+  Replies: 8 `{header,slot,TSimplePlayer}` 65B (`packet.h:556-561`, sent
+  `input_db.cpp:221-227`; client `Packet.h:1156-1161`, `PhaseSelect.cpp:233-249`)
+  or 9 `{header,bType}` 2B (`packet.h:862-866`; client `Packet.h:1163-1167`,
+  `PhaseSelect.cpp:252-262`). QUIRK: `input_db.cpp:199` sends a bare 1-byte 9
+  on one path — our framer and the C++ client stall on it identically.
+- Delete: C→S `HEADER_CG_CHARACTER_DELETE=5` (`packet.h:15`),
+  `{header,index,private_code[8]}` 10B (`packet.h:536-541`; client
+  `Packet.h:1169-1174` with `PRIVATE_CODE_LENGTH=8` (`Packet.h:378`), sent
+  `PhaseSelect.cpp:177-192`) → `CharacterDelete` (`input_login.cpp:501-535`:
+  no-account/overflow → silent; empty slot → bare 1-byte 11; else DB).
+  Replies: 10 + index 2B (`input_db.cpp:285-286`; client `Packet.h:1176-1180`,
+  `PhaseSelect.cpp:264-276`) or 11 bare 1B (`input_db.cpp:296`; client 1-byte
+  `TPacketGCBlank`, `PhaseSelect.cpp:278-286`).
 - `CharacterSelect` (`input_login.cpp:222`): needs `TAccountTable`,
-checks `PLAYER_PER_ACCOUNT`, sends `HEADER_GD_PLAYER_LOAD`.
+  checks `PLAYER_PER_ACCOUNT`, sends `HEADER_GD_PLAYER_LOAD`.
 - `Entergame` (`input_login.cpp:546`): needs character, `Show()`,
-`SetPhase(PHASE_GAME)`, then `HEADER_GC_TIME`, `HEADER_GC_CHANNEL`, greet.
+  `SetPhase(PHASE_GAME)`, then `HEADER_GC_TIME`, `HEADER_GC_CHANNEL`, greet.
 - Client `ConnectGameServer(slot)` (`PythonNetworkStream.cpp:462-472`):
   uses `m_akSimplePlayerInfo[slot].lAddr/wPort` — VERIFIED (see §4 lAddr note).
   C# mirror: `ChannelLoginClient.GetSlotEndpoint` (slot 0..3, empty-slot guard).
 - Loading (`PhaseLoading.cpp`): `GC_MAIN_CHARACTER*`, points/item/quickslot,
-default -> `GamePhase()`; `SendEnterGame` sends `HEADER_CG_ENTERGAME=10`
-with client struct `TPacketCGEnterFrontGame` (`client Packet.h:564-567`),
-server counterpart `TPacketCGEnterGame` (`server packet.h:627-630`).
+  default -> `GamePhase()`; `SendEnterGame` sends `HEADER_CG_ENTERGAME=10`
+  with client struct `TPacketCGEnterFrontGame` (`client Packet.h:564-567`),
+  server counterpart `TPacketCGEnterGame` (`server packet.h:627-630`, 1-byte
+  header; no loaded character → PHASE_CLOSE, `input_login.cpp:550-554`).
 
 ## 6. Framing
 
