@@ -14,7 +14,8 @@ namespace Metin2.Protocol.Security
     /// ActivateCipher (client, on 0xfa) / Activate (server, before phase switch);
     /// before that Encrypt/Decrypt are silent no-ops, mirroring cipher.h.
     ///
-    /// Block-cipher engines are not yet implemented: with a null engine factory
+    /// Block-cipher engines are supplied by <see cref="Engines.BlockCipherEngineFactory"/>
+    /// (all 13 suites ported, KAT-verified): with a null engine factory
     /// the session derives everything but throws InvalidOperationException on
     /// first activated use, with a message pointing at cipher-spec.md §6.
     /// No UnityEngine dependency.
