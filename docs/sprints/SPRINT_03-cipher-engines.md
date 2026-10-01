@@ -128,7 +128,13 @@ Not: `kDefault` (0) Twofish'e eşlenir — ayrı engine gerekmez.
 
 ## Tamamlanma kriteri (epic)
 
-- 13 engine + factory + her biri için KAT testleri yeşil.
-- Canlı sunucuya handshake → key agreement → ilk şifreli paket decode (bu adım DH2 yarı
-  sırası + CTR byte order UNVERIFIED'larını da kapatır).
-- GC ping header çelişkisi (0xfe vs 44) ayrıca çözülecek.
+- 13 engine + factory + her biri için KAT testleri yeşil. ✅
+- Handshake orkestrasyonu (offline): `HandshakeClient` (GC 0xff → GC 0xfb →
+  CG 0xfb → 0xfa → activate, client polarity true) + `SendSecureAsync` /
+  `ReceiveSecureFrameAsync` + 7 loopback testi (şifreli `GC_PHASE` çift-yön
+  round-trip dahil). ✅ (`HandshakeClientTests`, 325/325.)
+- Kaynak-kanıtla kapatılanlar: DH2 yarı sırası (dh2.h + cipher.cpp:393 çağrı
+  sırası) ve CTR big-endian sayaç (upstream modes.cpp OperateKeystream) —
+  cipher-spec.md §2/§4'te VERIFIED. ✅
+- Kalan: canlı sunucuya karşı uçtan-uca decode (gerçek auth/channel core ile
+  final kanıt) + GC ping header çelişkisi (0xfe vs 44) ayrıca çözülecek.

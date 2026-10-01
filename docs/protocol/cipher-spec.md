@@ -36,10 +36,12 @@ Impl: `Server/game/src/cipher.cpp:301-398`
   (`DH2::AgreedValueLength() = d1 + d2`, `cryptopp/dh2.h:34-35`).
 - `Agree` fails closed: `agreed_length != AgreedValueLength()` → false;
   `length != spub + epub` → false (`cipher.cpp:381-389`).
-- Agreed layout **static-agreed || ephemeral-agreed** — PARTIALLY VERIFIED:
-  strongly implied by `dh2.h` (d1=static composed first, `Agree` takes static
-  keys first), but `dh2.cpp` is not vendored in this tree; final proof is a
-  live-server encrypted-packet decode.
+- Agreed layout **static-agreed || ephemeral-agreed** — VERIFIED:
+  `dh2.h:34-35` (`AgreedValueLength = d1 + d2`, d1 = static composed first),
+  `dh2.h:59-62` (`Agree` takes static keys first), and the call site
+  `cipher.cpp:393` passes `(spriv, epriv, buf, buf + spub_len)` in that order.
+  Loopback `HandshakeClientTests` (client Dh2 ↔ server Dh2) confirms both
+  sides derive the same secret with this order.
 
 ## 3. Suite selection + key/IV derivation (`Cipher::SetUp`, cipher.cpp:180-242)
 
@@ -79,6 +81,13 @@ Impl: `Server/game/src/cipher.cpp:301-398`
 - Both directions run CTR mode (`CTR_Mode<T>::Encryption/Decryption`,
   `cipher.cpp:86-93`), so encryption and decryption are the same keystream-XOR
   operation; only the (suite,key,iv) assignment differs per direction.
+- CTR counter order — VERIFIED big-endian: upstream CryptoPP `modes.cpp`
+  `CTR_ModePolicy::OperateKeystream` encrypts `m_counterArray` (which starts as
+  the IV via `CipherResynchronize`), then increments the last byte with carry
+  propagating left (`m_counterArray[s-1] += blocks`, overflow via
+  `IncrementCounterBy256` → `IncrementCounterByOne(..., BlockSize()-1)`).
+  `CtrStream` ports exactly this (E(counter) then big-endian increment), and
+  the loopback encrypted-phase test proves client↔server interop.
 
 ## 4. Wire sequence
 
@@ -111,18 +120,22 @@ Client (`PhaseHandShake.cpp`, `NetStream.cpp`):
 - `TPacketKeyAgreementCompleted`: `BYTE bHeader` (0xfa) + 3 dummy bytes
   (`packet.h:2235-2239`).
 
-## 6. UNVERIFIED / deferred
+## 6. Handshake orchestrator (client)
 
-- DH2 agreed-half order (see §2): header-implied, needs live confirmation.
-- CTR counter increment byte order (`modes.cpp` not vendored; `modes.h:224-247`
-  declares the policy only). C# port uses standard big-endian CTR
-  (NIST SP 800-38A); confirm against first live encrypted packet.
-- The 15 block-cipher engines are NOT yet implemented. Each is independently
-  verifiable against official algorithm KATs (all are AES-candidate / standard
-  ciphers). Options evaluated: (a) port from CryptoPP reference — large but
-  exact; (b) BouncyCastle C# dependency — incomplete (no SHACAL-2/RC5) and
-  needs license/platform/size review per guide §16, so NOT adopted without
-  approval; (c) native CryptoPP P/Invoke — platform packaging cost for
-  Android/iOS. Decision deferred to engine epic.
+- `Assets/Scripts/Network/Session/HandshakeClient.cs`: GC 0xff → GC 0xfb →
+  DH2 agree → `CipherKeyDerivation` → CG 0xfb → await 0xfa → `SetActivated(true)`
+  (client polarity true). Fail-closed via `HandshakeFailedException`.
+- Post-handshake: `SendSecureAsync` / `ReceiveSecureFrameAsync`
+  (decrypt-before-frame; server encrypts the whole stream, `desc.cpp:460-461`).
+- Proven by `HandshakeClientTests` (7 loopback tests: full handshake +
+  encrypted `GC_PHASE` round-trip both directions, fragmentation, bad
+  lengths/keys, mid-handshake close, pre-handshake guard, double-run guard).
+
+## 7. Remaining UNVERIFIED / deferred
+
+- Live-server encrypted-packet decode (final end-to-end proof against the real
+  auth/channel core; offline loopback + source-verified CTR/DH2 already agree).
+- The 13 block-cipher engines are DONE (Sprint 3): each CryptoPP/bouncy-castle
+  port + official KATs, wired via `BlockCipherEngineFactory.ForSession()`.
 - Sequence/anti-replay: no explicit counter found in the framing path
   (see connection-flow.md §2); CTR keystream position is the implicit state.

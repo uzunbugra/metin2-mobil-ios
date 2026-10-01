@@ -4,6 +4,22 @@ Tüm önemli değişiklikler bu dosyada izlenir. Format: `Keep a Changelog` uyar
 Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
+### Eklenen
+- `HandshakeClient` (`Metin2.Network.Session`): GC 0xff → GC 0xfb → DH2 agree +
+  `CipherKeyDerivation` → CG 0xfb → 0xfa bekleme → `SetActivated(true)` (client
+  polarity true); fail-closed (`HandshakeFailedException`); şifreli trafik için
+  `SendSecureAsync` / `ReceiveSecureFrameAsync` (decrypt-before-frame).
+- `HandshakeClientTests` (7 loopback fake-server testi): tam handshake + şifreli
+  `GC_PHASE` çift-yön round-trip, parçalı yazımlar, bozuk agreed-length/key,
+  handshake-ortası kapanış, handshake-öncesi guard, çift-çalıştırma guard'ı.
+- Test: 318 → 325 (+7).
+### Doğrulanan (kaynak-kanıt, UNVERIFIED kapatıldı)
+- DH2 agreed yarı sırası = static || ephemeral — VERIFIED (`dh2.h:34-35,59-62` +
+  `cipher.cpp:393` çağrı sırası + loopback taraflar-arası aynı secret).
+- CTR sayaç = big-endian — VERIFIED (upstream `modes.cpp`
+  `OperateKeystream`/`IncrementCounterBy256` + `CtrStream` birebir port +
+  loopback şifreli-faz interop).
+- `CipherSession` dokümanı güncellendi (engine'ler portlu; null-factory guard halde).
 
 ## [2026-09-29] — Sprint 3 başladı: cipher engine'leri
 ### Eklenen

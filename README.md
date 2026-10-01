@@ -15,8 +15,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 1 — Unity Altyapı | ✅ Tamamlandı | Proje iskeleti, golden byte test'leri, codec'ler |
 | Sprint 2 — Protocol Core | ✅ Tamamlandı | Transport, framer, registry, DH2 + derivation + session/CTR |
 | Sprint 3 — Cipher Engine'leri | ✅ Tamamlandı | 13 engine'in 13'ü tamam + factory + KAT altyapısı |
+| Sprint 3 epic — Handshake (offline) | ✅ Tamamlandı | `HandshakeClient` + şifreli faz round-trip (loopback); DH2 sırası + CTR order kaynak-kanıtlı VERIFIED |
 
-**Test: 318/318 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 325/325 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -188,6 +189,17 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   çevrildi (`(CipherSuite)99` → "Unknown", fail-closed kanıtı).
 - Test: 308 → **318/318** (+10: SEED 9, factory 1). **Sprint 3 epic tamam.**
 
+### Adım 17 — Handshake Orkestrasyonu (Sprint 3 epic, offline kısmı ✅)
+- `HandshakeClient` (`Network/Session`): GC 0xff → GC 0xfb → DH2 agree + SetUp
+  türetme → CG 0xfb → 0xfa bekleme → activate (client polarity **true**);
+  fail-closed (`HandshakeFailedException`); `SendSecureAsync` /
+  `ReceiveSecureFrameAsync` (decrypt-before-frame).
+- Kaynak-kanıtla kapatılanlar: DH2 yarı sırası (dh2.h + cipher.cpp:393) ve CTR
+  big-endian sayaç (upstream modes.cpp) — cipher-spec.md §2/§4 VERIFIED.
+- Test: 318 → **325/325** (+7 loopback: tam handshake + şifreli `GC_PHASE`
+  çift-yön round-trip, parçalı yazım, bozuk length/key, erken kapanış,
+  pre-handshake guard, double-run guard).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -219,6 +231,7 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | Camellia (10) | `CamelliaEngineTests` | 3 RFC 3713 KAT + NESSIE zero-key + decrypt + round-trip (16/24/32) |
 | SEED (9) | `SeedEngineTests` | 4 RFC 4269 KAT + decrypt + round-trip |
 | Factory (14) | `BlockCipherEngineFactoryTests` | Suite yönlendirme, session round-trip, unknown-selector fail-closed |
+| Handshake (7) | `HandshakeClientTests` | Loopback tam handshake, şifreli faz çift-yön, fragmantasyon, fail-closed |
 
 ## Mimari
 
@@ -248,7 +261,7 @@ Assets/Scripts/
 │   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketGCPhaseCodec
 │   ├── Constants/  — PacketHeaders, PhaseType
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
-│   │                  CipherEngineNotImplementedException
+│   │                  CipherEngineNotImplementedException, HandshakeFailedException
 │   ├── Framing/    — PacketLengthTable, PacketFramer (TCP stream → frame)
 │   ├── Registry/   — PacketRegistry, PacketDescriptor (phase-aware dispatch)
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
@@ -256,11 +269,11 @@ Assets/Scripts/
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
 │   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketGCPhase, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
-    ├── Network/    — TcpConnectionTests
+    ├── Network/    — TcpConnectionTests, HandshakeClientTests
     └── Protocol/   — PacketGCHandshakeTests, PacketKeyAgreementTests, PacketCGLogin3Tests,
                        PacketGCPhaseTests, PacketReaderWriterTests, PacketFramerTests,
                        PacketRegistryTests, Dh2KeyAgreementTests, CipherSuiteTests,
@@ -278,7 +291,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 318/318 başarılı ✅**
+**Son test sonucu: 325/325 başarılı ✅**
 
 ## Dokümanlar
 
@@ -295,14 +308,14 @@ dotnet test Metin2.Tests.csproj
 
 ## Bilinen Eksikler (UNVERIFIED)
 
-- DH2 agreed yarı sırası (header-imaalı; ilk canlı şifreli paketle kanıtlanacak)
-- CTR counter byte order (CryptoPP `modes.cpp` vendored değil; ilk canlı paketle kanıtlanacak)
+- Canlı sunucuya karşı uçtan-uca handshake decode (offline loopback + kaynak-kanıt tamam; gerçek auth core final kanıtı)
 - GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 
-**Canlı handshake**: 13 engine tamam — sırada canlı sunucuya handshake → key agreement → ilk şifreli paket decode
-(bu adım yukarıdaki UNVERIFIED'ları da kapatır).
+**Auth login akışı**: `HandshakeClient` sonrası `CG_LOGIN3` (111) gönderimi → GC login
+yanıtları (`GC_AUTH_SUCCESS` 150 / `GC_LOGIN_FAILURE` 7) codec + phase-aware registry
+kapsamı; ardından server/channel list ve character select (Sprint 4).
 
 ## Kurallar
 
