@@ -25,8 +25,12 @@ namespace Metin2.Protocol.Constants
 
         // Authentication & Login
         public const byte HEADER_CG_LOGIN3 = 111;              // 0x6f (packet.h:86, input_auth.cpp:102)
-        public const byte HEADER_CG_LOGIN2 = 109;              // 0x6d (packet.h:84)
+        public const byte HEADER_CG_LOGIN2 = 109;              // 0x6d (packet.h:84, input_login.cpp:138)
         public const byte HEADER_GC_AUTH_SUCCESS = 150;        // 0x96 (packet.h:266, input_db.cpp:1685)
-        public const byte HEADER_GC_LOGIN_FAILURE = 7;         // 0x07 (packet.h:245)
+        public const byte HEADER_GC_LOGIN_FAILURE = 7;         // 0x07 (packet.h:126, input.cpp:177)
+
+        // Character Select
+        public const byte HEADER_GC_EMPIRE = 90;               // 0x5a (packet.h:206, input_db.cpp:157)
+        public const byte HEADER_GC_LOGIN_SUCCESS_NEWSLOT = 32; // 0x20 (packet.h:125, desc.cpp:892)
     }
 }

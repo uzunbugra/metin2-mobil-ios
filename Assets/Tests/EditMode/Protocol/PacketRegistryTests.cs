@@ -139,5 +139,40 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_FAILURE, PhaseType.Game));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_FAILURE, PhaseType.Handshake));
         }
+
+        [Test]
+        public void ChannelRegistry_ExtendsAuthWithSelectReplies()
+        {
+            var registry = PacketRegistry.CreateChannelRegistry();
+
+            Assert.AreEqual(8, registry.Count);
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_EMPIRE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, out _));
+            // Auth entries survive.
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_AUTH_SUCCESS, PhaseType.Auth));
+        }
+
+        [Test]
+        public void Empire_AllowedOnlyInLoginPhase()
+        {
+            // Server sends empire BEFORE SetPhase(SELECT) (input_db.cpp:157-172).
+            var registry = PacketRegistry.CreateChannelRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_EMPIRE, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_EMPIRE, PhaseType.Select));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_EMPIRE, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_EMPIRE, PhaseType.Handshake));
+        }
+
+        [Test]
+        public void LoginSuccessNewslot_AllowedOnlyInSelectPhase()
+        {
+            // desc.cpp:892-919 SendLoginSuccessPacket runs after PHASE_SELECT.
+            var registry = PacketRegistry.CreateChannelRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, PhaseType.Select));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, PhaseType.Game));
+        }
     }
 }

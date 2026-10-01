@@ -191,5 +191,34 @@ namespace Metin2.Protocol.Registry
 
             return registry;
         }
+
+        /// <summary>
+        /// Auth registry plus the source-verified channel-login replies
+        /// (docs/protocol/connection-flow.md §4):
+        /// GC_EMPIRE (90, 2B) arrives in the Login phase — server sends it
+        /// BEFORE SetPhase(SELECT) (input_db.cpp:157-172);
+        /// GC_LOGIN_SUCCESS_NEWSLOT (32, 329B) arrives in the Select phase
+        /// (desc.cpp:892-919 SendLoginSuccessPacket).
+        /// </summary>
+        public static PacketRegistry CreateChannelRegistry()
+        {
+            var registry = CreateAuthRegistry();
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_EMPIRE,
+                "HEADER_GC_EMPIRE",
+                PacketDirection.ServerToClient,
+                2,
+                allowedPhases: new[] { PhaseType.Login }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT,
+                "HEADER_GC_LOGIN_SUCCESS_NEWSLOT",
+                PacketDirection.ServerToClient,
+                329,
+                allowedPhases: new[] { PhaseType.Select }));
+
+            return registry;
+        }
     }
 }

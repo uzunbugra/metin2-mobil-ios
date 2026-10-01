@@ -54,6 +54,28 @@ namespace Metin2.Tests.EditMode.Protocol
         }
 
         [Test]
+        public void SelectReplies_FrameAtSourceVerifiedLengths()
+        {
+            // 90 = 2B (packet.h:1638-1642), 32 = 329B (packet.h:838-847).
+            var framer = new PacketFramer();
+            byte[] empire = PacketGCEmpireCodec.Serialize(new PacketGCEmpire(2));
+            byte[] slots = new byte[PacketGCLoginSuccess.PacketSize];
+            slots[0] = PacketGCLoginSuccess.PacketHeader;
+
+            Assert.AreEqual(2, empire.Length);
+            Assert.AreEqual(329, slots.Length);
+
+            framer.Append(empire);
+            framer.Append(slots);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] first));
+            CollectionAssert.AreEqual(empire, first);
+            Assert.IsTrue(framer.TryDequeue(out byte[] second));
+            CollectionAssert.AreEqual(slots, second);
+            Assert.AreEqual(0, framer.BufferedBytes);
+        }
+
+        [Test]
         public void Coalesced_TwoFramesInOneAppend_DequeueInOrder()
         {
             var framer = new PacketFramer();
