@@ -53,6 +53,32 @@ Dersler:
   yoksa pozisyon ilerlemez (derleme hatası değil, sessiz bug olurdu).
 - Test: 511 → 536 (+25).
 
+## Adım 3 — Hareket (tamamlandı ✅)
+
+İz sürme: istemci niyeti `SendCharacterStatePacket` (`PhaseGame.cpp:1107-1145`,
+rot=degrees/5, cm, server-ms) → `CInputMain::Move` (`input_main.cpp:1514-1688`:
+teleport/speed/combo kontrolleri, izleyicilere rebroadcast — gönderene HARİÇ) →
+sync batch'leri (`input_main.cpp:1782+`: wSize doğrulama, 16 clamp, sync-owner +
+3500cm anti-hack).
+
+| İş | Dosya | Test |
+|---|---|---|
+| CG_MOVE (7, 16B) + GC_MOVE (3, 24B) + codec'ler | 2 paket + 2 codec (+`MoveFunc`) | 6 + 6 |
+| Sync element + CG/GC dynamic codec'ler | `SyncPositionElement.cs` + 3 codec | `SyncPositionCodecTests` (8) |
+| Dinamik framer (header 5, inline wSize) | `PacketLengthTable` sync sabitleri + `PacketFramer` wSize dalı | framer +3 |
+| Registry | game registry +2 (3/5 Game) | registry +1 |
+| Hareket istemcisi | `Network/Session/MovementClient.cs` (quantize + fail-closed) | `MovementClientTests` (6 loopback) |
+
+Dersler:
+- **24B'yi 16B okumak**: GC_MOVE ilk yazımda 16B yazılmıştı (CG ile karıştı);
+  istemci struct'ı (24B + duration) hakem oldu. Yön başına boyut ayrı doğrulanır.
+- **Framer test verisi gerçek header'la çakışabilir**: bozuk-wSize testinde
+  `0x0A` artığı geçerli bir 10-frame kurdu — test verisi registry'den kaçırıldı.
+- **Struct clamp'ı codec'i kör eder**: CG struct'taki Min(...,16) serialize'ın
+  overflow'u görmesini engelliyordu; clamp kaldırıldı, hata fail-closed'a döndü.
+- Test: 536 → 566 (+30).
+
 ## Sıradaki (Sprint 5 devam)
 
-- Hareket: SYNC_POSITION/MOVE paketleri (oynanabilir vertical slice).
+- Headless canlı giriş: staging sunucuya handshake → world entry denemesi
+  (test hesabı, staging izolasyonu).

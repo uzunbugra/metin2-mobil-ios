@@ -184,7 +184,34 @@ share `m_inputLogin`, `desc.cpp:539-547`); client dispatch mirror
   server counterpart `TPacketCGEnterGame` (`server packet.h:627-630`, 1-byte
   header; no loaded character → PHASE_CLOSE, `input_login.cpp:550-554`).
 
-## 6. Framing
+## 6. Movement (Game phase, server-authoritative)
+
+Client intent: `SendCharacterStatePacket` (`PhaseGame.cpp:1107-1145`):
+`HEADER_CG_MOVE=7` (`packet.h:17`; client name `HEADER_CG_CHARACTER_MOVE`,
+`Packet.h:18`), `{bFunc,bArg,bRot=degrees/5,lX,lY cm,dwTime server-ms}`
+(`packet.h:586-595`, 16B; client `Packet.h:695-704`).
+Server `CInputMain::Move` (`input_main.cpp:1514-1688`): func validity,
+teleport check (>25m walk / 40m ride → HackLog + reshow + stop), speedhack
+timing (30s slow / negative-delta disconnect), combo-hack; FUNC_MOVE → Goto
+with rotation `bRot*5`; then `GC_MOVE` rebroadcast to viewers ONLY
+(`PacketAround` excludes self, `input_main.cpp:1651-1663`).
+
+`TPacketGCMove` (`packet.h:1288-1299`, 24B; client `Packet.h:1888-1899`):
+`{bFunc,bArg,bRot,dwVID,lX,lY,dwTime,dwDuration}` (duration = travel time on
+FUNC_MOVE, else 0).
+
+Sync positions: client batches visible actors per frame
+(`PhaseGame.cpp:2697-2714`, from `PlayerEventHandler.cpp:214`):
+`HEADER_CG_SYNC_POSITION=8` (`packet.h:18`), `{wSize + N×{vid,x,y}}`
+(`packet.h:597-609`; client `Packet.h:706-717`).
+Server `SyncPosition` (`input_main.cpp:1782-1900+`): wSize short → CLOSE,
+misaligned → error, count clamped to 16, per-victim sync-owner + 3500cm
+distance rules (repeated violation → CLOSE); rebroadcasts GC batch
+(`packet.h:1310-1322`, header 5).
+C# mirror: `MovementClient` (quantized rotation, fail-closed func/coords/
+count) + dynamic wSize framing in `PacketFramer` (same guards as server).
+
+## 7. Framing
 
 Server RX `CInputProcessor::Process` (`input.cpp:59-130`): 1-byte header,
 `0x00` padding consumed as len 1, else `CPacketInfoCG::Get`, unknown ->

@@ -75,7 +75,17 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - `InventoryClientTests` (5 loopback): set→update→clear yaşam döngüsü,
   Game-fazı kabulü, yanlış-faz fail-closed.
 - `packet-catalog.json`: 21/20/25 VERIFIED (33 paket).
-- Test: 511 → 536 (+25).
+- Hareket (Sprint 5, adım 3): `MovementClient`
+  (`Metin2.Network.Session`) — move intent + sync batch gönderimi, move/sync alımı.
+- `PacketCGMove` (7, 16B) + `PacketGCMove` (3, 24B) + sync element/CG/GC dynamic
+  codec'ler (+`MoveFunc` sabitleri).
+- Dinamik framer: header 5 inline wSize ile (server-guard paritesi:
+  kısa/hizasız/aşırı boy reddi); `PacketLengthTable` sync sabitleri.
+- `PacketLengthTable`: 3→24; game registry +2 (3/5 Game-only).
+- `MovementClientTests` (6 loopback): niyet+yayın turu, sync turu, rot quantize,
+  geçersiz func/koordinat/eleman-sayısı guard'ları.
+- `packet-catalog.json`: 7/3/8/5 VERIFIED (37 paket); `connection-flow.md` §6 hareket.
+- Test: 536 → 566 (+30).
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).
