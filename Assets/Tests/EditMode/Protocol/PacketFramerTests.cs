@@ -76,6 +76,39 @@ namespace Metin2.Tests.EditMode.Protocol
         }
 
         [Test]
+        public void CreateDeleteReplies_FrameAtSourceVerifiedLengths()
+        {
+            // 8 = 65B (packet.h:556-561), 9 = 2B (packet.h:862-866),
+            // 10 = 2B (input_db.cpp:285-286), 11 = 1B (input_db.cpp:296).
+            var framer = new PacketFramer();
+            byte[] createOk = PacketGCCreateSuccessCodec.Serialize(
+                new PacketGCCreateSuccess(1, SimplePlayerCodecTests.SampleSlot()));
+            byte[] createFail = PacketGCCreateFailureCodec.Serialize(new PacketGCCreateFailure(1));
+            byte[] deleteOk = PacketGCDeleteSuccessCodec.Serialize(new PacketGCDeleteSuccess(2));
+            byte[] deleteFail = PacketGCDeleteFailureCodec.Serialize(new PacketGCDeleteFailure());
+
+            Assert.AreEqual(65, createOk.Length);
+            Assert.AreEqual(2, createFail.Length);
+            Assert.AreEqual(2, deleteOk.Length);
+            Assert.AreEqual(1, deleteFail.Length);
+
+            framer.Append(createOk);
+            framer.Append(createFail);
+            framer.Append(deleteOk);
+            framer.Append(deleteFail);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(createOk, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(createFail, f2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f3));
+            CollectionAssert.AreEqual(deleteOk, f3);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f4));
+            CollectionAssert.AreEqual(deleteFail, f4);
+            Assert.AreEqual(0, framer.BufferedBytes);
+        }
+
+        [Test]
         public void Coalesced_TwoFramesInOneAppend_DequeueInOrder()
         {
             var framer = new PacketFramer();

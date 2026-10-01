@@ -220,5 +220,49 @@ namespace Metin2.Protocol.Registry
 
             return registry;
         }
+
+        /// <summary>
+        /// Channel registry plus the source-verified select-phase replies
+        /// (SELECT and LOGIN share m_inputLogin — desc.cpp:539-547):
+        /// create success (8, 65B — input_db.cpp:221-227),
+        /// create failure (9, 2B — input_login.cpp:427-482),
+        /// delete success (10, 2B — input_db.cpp:285-286),
+        /// delete failure (11, 1B — input_db.cpp:296).
+        /// Client dispatch mirror: PhaseSelect.cpp:71-89.
+        /// </summary>
+        public static PacketRegistry CreateSelectRegistry()
+        {
+            var registry = CreateChannelRegistry();
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS,
+                "HEADER_GC_CHARACTER_CREATE_SUCCESS",
+                PacketDirection.ServerToClient,
+                65,
+                allowedPhases: new[] { PhaseType.Select }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_CREATE_FAILURE,
+                "HEADER_GC_CHARACTER_CREATE_FAILURE",
+                PacketDirection.ServerToClient,
+                2,
+                allowedPhases: new[] { PhaseType.Select }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS,
+                "HEADER_GC_CHARACTER_DELETE_SUCCESS",
+                PacketDirection.ServerToClient,
+                2,
+                allowedPhases: new[] { PhaseType.Select }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID,
+                "HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID",
+                PacketDirection.ServerToClient,
+                1,
+                allowedPhases: new[] { PhaseType.Select }));
+
+            return registry;
+        }
     }
 }

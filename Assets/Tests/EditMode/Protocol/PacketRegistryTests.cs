@@ -174,5 +174,37 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, PhaseType.Login));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, PhaseType.Game));
         }
+
+        [Test]
+        public void SelectRegistry_ExtendsChannelWithCreateDeleteReplies()
+        {
+            var registry = PacketRegistry.CreateSelectRegistry();
+
+            Assert.AreEqual(12, registry.Count);
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_CREATE_FAILURE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID, out _));
+            // Channel entries survive.
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, PhaseType.Select));
+        }
+
+        [Test]
+        public void SelectReplies_AllowedOnlyInSelectPhase()
+        {
+            // SELECT and LOGIN share m_inputLogin (desc.cpp:539-547); the
+            // create/delete replies are produced only on the select screen.
+            var registry = PacketRegistry.CreateSelectRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS, PhaseType.Select));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_CREATE_FAILURE, PhaseType.Select));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS, PhaseType.Select));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID, PhaseType.Select));
+
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID, PhaseType.Handshake));
+        }
     }
 }

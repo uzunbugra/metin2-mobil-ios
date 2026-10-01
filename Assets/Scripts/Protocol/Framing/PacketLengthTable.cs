@@ -82,6 +82,41 @@ namespace Metin2.Protocol.Framing
                 return true;
             }
 
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS)
+            {
+                // sizeof(TPacketGCPlayerCreateSuccess) = 1+1+63 = 65,
+                // packet.h:556-561 (client mirror UserInterface/Packet.h:1156-1161).
+                length = 65;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_CREATE_FAILURE)
+            {
+                // sizeof(TPacketGCCreateFailure) = 1+1 = 2, packet.h:862-866
+                // (client mirror UserInterface/Packet.h:1163-1167).
+                // NOTE quirk: input_db.cpp:199 sends a bare 1-byte 9 header on
+                // one path; both our framer and the C++ client stall on it
+                // identically (documented, not worked around).
+                length = 2;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS)
+            {
+                // 2 one-byte Packet() calls: header 10 + slot index
+                // (input_db.cpp:285-286; client UserInterface/Packet.h:1176-1180).
+                length = 2;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID)
+            {
+                // Single 1-byte Packet() of header 11 (input_db.cpp:296;
+                // client reads 1-byte TPacketGCBlank, PhaseSelect.cpp:278-286).
+                length = 1;
+                return true;
+            }
+
             length = 0;
             return false;
         }

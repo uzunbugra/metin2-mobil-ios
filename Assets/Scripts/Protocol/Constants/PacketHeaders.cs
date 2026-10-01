@@ -32,5 +32,14 @@ namespace Metin2.Protocol.Constants
         // Character Select
         public const byte HEADER_GC_EMPIRE = 90;               // 0x5a (packet.h:206, input_db.cpp:157)
         public const byte HEADER_GC_LOGIN_SUCCESS_NEWSLOT = 32; // 0x20 (packet.h:125, desc.cpp:892)
+        public const byte HEADER_CG_EMPIRE = 90;               // 0x5a (packet.h:73, input_login.cpp:792)
+        public const byte HEADER_CG_CHARACTER_SELECT = 6;      // 0x06 (packet.h:16, input_login.cpp:222)
+        public const byte HEADER_CG_CHARACTER_CREATE = 4;      // 0x04 (packet.h:14, input_login.cpp:416)
+        public const byte HEADER_CG_CHARACTER_DELETE = 5;      // 0x05 (packet.h:15, input_login.cpp:501)
+        public const byte HEADER_CG_ENTERGAME = 10;            // 0x0a (packet.h:19, input_login.cpp:546)
+        public const byte HEADER_GC_CHARACTER_CREATE_SUCCESS = 8; // 0x08 (packet.h:128, input_db.cpp:221)
+        public const byte HEADER_GC_CHARACTER_CREATE_FAILURE = 9; // 0x09 (packet.h:129, input_login.cpp:427)
+        public const byte HEADER_GC_CHARACTER_DELETE_SUCCESS = 10; // 0x0a (packet.h:130, input_db.cpp:278)
+        public const byte HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID = 11; // 0x0b (packet.h:131, input_db.cpp:291)
     }
 }
