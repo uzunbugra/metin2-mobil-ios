@@ -258,5 +258,33 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.AreEqual(0, framer.DroppedBytes);
             Assert.IsFalse(framer.TryDequeue(out byte[] _));
         }
+
+        [Test]
+        public void WorldEntryPackets_FrameAtSourceVerifiedLengths()
+        {
+            // 113 = 46B (packet.h:982-991), 106 = 5B (packet.h:1891-1895),
+            // 121 = 2B (packet.h:1995-1999).
+            var framer = new PacketFramer();
+            byte[] mainChar = PacketGCMainCharacterCodec.Serialize(
+                PacketGCMainCharacterTests.SamplePacket());
+            byte[] time = PacketGCTimeCodec.Serialize(new PacketGCTime(1));
+            byte[] channel = PacketGCChannelCodec.Serialize(new PacketGCChannel(1));
+
+            Assert.AreEqual(46, mainChar.Length);
+            Assert.AreEqual(5, time.Length);
+            Assert.AreEqual(2, channel.Length);
+
+            framer.Append(mainChar);
+            framer.Append(time);
+            framer.Append(channel);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(mainChar, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(time, f2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f3));
+            CollectionAssert.AreEqual(channel, f3);
+            Assert.AreEqual(0, framer.BufferedBytes);
+        }
     }
 }

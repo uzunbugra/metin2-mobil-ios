@@ -206,5 +206,43 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS, PhaseType.Login));
             Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID, PhaseType.Handshake));
         }
+
+        [Test]
+        public void WorldEntryRegistry_ExtendsSelectWithEntryPackets()
+        {
+            var registry = PacketRegistry.CreateWorldEntryRegistry();
+
+            Assert.AreEqual(15, registry.Count);
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_TIME, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHANNEL, out _));
+            // Select entries survive.
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS, PhaseType.Select));
+        }
+
+        [Test]
+        public void MainCharacter_AllowedOnlyInLoadingPhase()
+        {
+            // Sent from PlayerLoad (input_db.cpp:427-428, PHASE_LOADING).
+            var registry = PacketRegistry.CreateWorldEntryRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, PhaseType.Select));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, PhaseType.Handshake));
+        }
+
+        [Test]
+        public void TimeAndChannel_AllowedOnlyInGamePhase()
+        {
+            // Sent right after PHASE_GAME (input_login.cpp:579-620).
+            var registry = PacketRegistry.CreateWorldEntryRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_TIME, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_CHANNEL, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_TIME, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_CHANNEL, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_TIME, PhaseType.Select));
+        }
     }
 }

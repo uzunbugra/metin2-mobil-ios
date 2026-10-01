@@ -41,5 +41,10 @@ namespace Metin2.Protocol.Constants
         public const byte HEADER_GC_CHARACTER_CREATE_FAILURE = 9; // 0x09 (packet.h:129, input_login.cpp:427)
         public const byte HEADER_GC_CHARACTER_DELETE_SUCCESS = 10; // 0x0a (packet.h:130, input_db.cpp:278)
         public const byte HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID = 11; // 0x0b (packet.h:131, input_db.cpp:291)
+
+        // World Entry
+        public const byte HEADER_GC_MAIN_CHARACTER2_EMPIRE = 113; // 0x71 (server packet.h:225; client Packet.h:261, non-GAIDEN branch)
+        public const byte HEADER_GC_TIME = 106;            // 0x6a (server packet.h:218; client Packet.h:248)
+        public const byte HEADER_GC_CHANNEL = 121;         // 0x79 (server packet.h:234; client Packet.h:272)
     }
 }

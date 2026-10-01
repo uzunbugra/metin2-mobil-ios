@@ -264,5 +264,41 @@ namespace Metin2.Protocol.Registry
 
             return registry;
         }
+
+        /// <summary>
+        /// Select registry plus the source-verified world-entry packets:
+        /// GC_MAIN_CHARACTER2 (113, 46B) arrives in the Loading phase
+        /// (`PlayerLoad`, input_db.cpp:427-428);
+        /// GC_TIME (106, 5B) and GC_CHANNEL (121, 2B) arrive in the Game phase
+        /// right after PHASE_GAME (`Entergame`, input_login.cpp:579-620).
+        /// Client dispatch mirror: PhaseLoading.cpp:96-113, PhaseGame.cpp:496-497.
+        /// </summary>
+        public static PacketRegistry CreateWorldEntryRegistry()
+        {
+            var registry = CreateSelectRegistry();
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE,
+                "HEADER_GC_MAIN_CHARACTER2_EMPIRE",
+                PacketDirection.ServerToClient,
+                46,
+                allowedPhases: new[] { PhaseType.Loading }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_TIME,
+                "HEADER_GC_TIME",
+                PacketDirection.ServerToClient,
+                5,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_CHANNEL,
+                "HEADER_GC_CHANNEL",
+                PacketDirection.ServerToClient,
+                2,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            return registry;
+        }
     }
 }
