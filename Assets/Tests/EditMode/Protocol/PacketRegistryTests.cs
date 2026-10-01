@@ -105,5 +105,39 @@ namespace Metin2.Tests.EditMode.Protocol
                 new PacketDescriptor(0xff, "X", PacketDirection.ServerToClient, 13);
             });
         }
+
+        [Test]
+        public void AuthRegistry_ExtendsHandshakeWithAuthReplies()
+        {
+            var registry = PacketRegistry.CreateAuthRegistry();
+
+            Assert.AreEqual(6, registry.Count);
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_HANDSHAKE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_AUTH_SUCCESS, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_LOGIN_FAILURE, out _));
+        }
+
+        [Test]
+        public void AuthSuccess_AllowedOnlyInAuthPhase()
+        {
+            var registry = PacketRegistry.CreateAuthRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_AUTH_SUCCESS, PhaseType.Auth));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_AUTH_SUCCESS, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_AUTH_SUCCESS, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_AUTH_SUCCESS, PhaseType.Handshake));
+        }
+
+        [Test]
+        public void LoginFailure_AllowedInAuthAndLoginPhases()
+        {
+            // Shared LoginFailure() helper (input.cpp:177-188) serves both phases.
+            var registry = PacketRegistry.CreateAuthRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_FAILURE, PhaseType.Auth));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_FAILURE, PhaseType.Login));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_FAILURE, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_LOGIN_FAILURE, PhaseType.Handshake));
+        }
     }
 }

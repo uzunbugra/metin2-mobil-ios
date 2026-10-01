@@ -49,6 +49,23 @@ namespace Metin2.Protocol.Framing
                 return true;
             }
 
+            if (header == PacketHeaders.HEADER_GC_AUTH_SUCCESS)
+            {
+                // sizeof(TPacketGCAuthSuccess) = 1+4+1, packet.h:849-854
+                // (client mirror UserInterface/Packet.h:2370-2375).
+                length = 6;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_LOGIN_FAILURE)
+            {
+                // sizeof(TPacketGCLoginFailure) = 1+9, packet.h:856-860
+                // (szStatus[ACCOUNT_STATUS_MAX_LEN+1], length.h:12;
+                // client mirror UserInterface/Packet.h:1136-1141).
+                length = 10;
+                return true;
+            }
+
             length = 0;
             return false;
         }

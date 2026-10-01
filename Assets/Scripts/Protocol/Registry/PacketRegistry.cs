@@ -162,5 +162,34 @@ namespace Metin2.Protocol.Registry
 
             return registry;
         }
+
+        /// <summary>
+        /// Handshake path plus the source-verified auth-login replies
+        /// (docs/protocol/connection-flow.md §3):
+        /// GC_AUTH_SUCCESS (150, 6B, Auth only — input_db.cpp:1686-1710) and
+        /// GC_LOGIN_FAILURE (7, 10B, Auth + Login — the shared LoginFailure()
+        /// helper in input.cpp:177-188 is called from both CInputAuth and
+        /// CInputLogin paths).
+        /// </summary>
+        public static PacketRegistry CreateAuthRegistry()
+        {
+            var registry = CreateHandshakeRegistry();
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_AUTH_SUCCESS,
+                "HEADER_GC_AUTH_SUCCESS",
+                PacketDirection.ServerToClient,
+                6,
+                allowedPhases: new[] { PhaseType.Auth }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_LOGIN_FAILURE,
+                "HEADER_GC_LOGIN_FAILURE",
+                PacketDirection.ServerToClient,
+                10,
+                allowedPhases: new[] { PhaseType.Auth, PhaseType.Login }));
+
+            return registry;
+        }
     }
 }

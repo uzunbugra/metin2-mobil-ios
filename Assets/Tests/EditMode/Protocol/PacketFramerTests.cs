@@ -33,6 +33,27 @@ namespace Metin2.Tests.EditMode.Protocol
         }
 
         [Test]
+        public void AuthReplies_FrameAtSourceVerifiedLengths()
+        {
+            // 150 = 6B (packet.h:849-854), 7 = 10B (packet.h:856-860).
+            var framer = new PacketFramer();
+            byte[] success = PacketGCAuthSuccessCodec.Serialize(new PacketGCAuthSuccess(1, 1));
+            byte[] failure = PacketGCLoginFailureCodec.Serialize(new PacketGCLoginFailure("NOID"));
+
+            Assert.AreEqual(6, success.Length);
+            Assert.AreEqual(10, failure.Length);
+
+            framer.Append(success);
+            framer.Append(failure);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] first));
+            CollectionAssert.AreEqual(success, first);
+            Assert.IsTrue(framer.TryDequeue(out byte[] second));
+            CollectionAssert.AreEqual(failure, second);
+            Assert.AreEqual(0, framer.BufferedBytes);
+        }
+
+        [Test]
         public void Coalesced_TwoFramesInOneAppend_DequeueInOrder()
         {
             var framer = new PacketFramer();
