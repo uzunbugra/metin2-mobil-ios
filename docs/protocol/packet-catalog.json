@@ -258,7 +258,7 @@
       "packetName": "HEADER_GC_PING",
       "header": 44,
       "headerHex": "0x2c",
-      "headerSource": "Server/game/src/packet.h:172 ; Client Packet.h:1842",
+      "headerSource": "Server/game/src/packet.h:172 ; Client Packet.h:195",
       "direction": "S2C",
       "phase": "LOGIN/SELECT/LOADING/GAME",
       "lengthKind": "Fixed",

@@ -353,6 +353,45 @@ namespace Metin2.Tests.EditMode.Protocol
         }
 
         [Test]
+        public void Ping_SingleByteFrame_DequeuedNotCountedAsGarbage()
+        {
+            // 44 = 1B TPacketGCPing (packet.h:1259-1262; client Packet.h:1839-1842).
+            // Regression: header 44 was previously unregistered, so every server
+            // keepalive ping was dropped and counted as garbage (DroppedBytes).
+            var framer = new PacketFramer();
+            byte[] ping = { Metin2.Protocol.Constants.PacketHeaders.HEADER_GC_PING };
+
+            framer.Append(ping);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] frame));
+            CollectionAssert.AreEqual(ping, frame);
+            Assert.AreEqual(0, framer.BufferedBytes);
+            Assert.AreEqual(0, framer.DroppedBytes);
+        }
+
+        [Test]
+        public void Ping_CoalescedBetweenFrames_DequeuedInOrder()
+        {
+            var framer = new PacketFramer();
+            byte[] phase = GoldenPhase();
+            byte[] ping = { Metin2.Protocol.Constants.PacketHeaders.HEADER_GC_PING };
+
+            byte[] coalesced = new byte[phase.Length + ping.Length + phase.Length];
+            phase.CopyTo(coalesced, 0);
+            ping.CopyTo(coalesced, phase.Length);
+            phase.CopyTo(coalesced, phase.Length + ping.Length);
+            framer.Append(coalesced);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(phase, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(ping, f2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f3));
+            CollectionAssert.AreEqual(phase, f3);
+            Assert.AreEqual(0, framer.DroppedBytes);
+        }
+
+        [Test]
         public void SyncFrame_FragmentedWaits_CoalescedSplits()
         {
             // Dynamic wSize framing (packet.h:1317-1322): 2 elements = 27B.

@@ -24,7 +24,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Item Sistemi (adım 2) | ✅ Tamamlandı | `InventoryClient`: set/clear/update eventleri (loopback kanıtlı) |
 | Sprint 5 — Hareket (adım 3) | ✅ Tamamlandı | `MovementClient`: move/sync gönderim+alım, dinamik framer (loopback kanıtlı) |
 
-**Test: 566/566 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 568/568 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -399,7 +399,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 566/566 başarılı ✅**
+**Son test sonucu: 568/568 başarılı ✅**
 
 ## Dokümanlar
 
@@ -418,7 +418,6 @@ dotnet test Metin2.Tests.csproj
 ## Bilinen Eksikler (UNVERIFIED)
 
 - Canlı sunucuya karşı uçtan-uca handshake decode (offline loopback + kaynak-kanıt tamam; gerçek auth core final kanıtı)
-- GC ping header çelişkisi: `PacketHeaders.cs` 0xfe vs `packet-catalog.json` 44 (çözülmedi, framer'a alınmadı)
 
 ## Sonraki Adım
 

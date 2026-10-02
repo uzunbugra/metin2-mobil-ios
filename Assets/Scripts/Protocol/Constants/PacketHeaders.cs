@@ -9,11 +9,11 @@ namespace Metin2.Protocol.Constants
     public static class PacketHeaders
     {
         // Handshake & Time Sync
-        public const byte HEADER_CG_HANDSHAKE = 0xff;          // 255 (packet.h:493)
-        public const byte HEADER_GC_HANDSHAKE = 0xff;          // 255 (packet.h:789)
-        public const byte HEADER_CG_TIME_SYNC = 0xfc;          // 252 (PythonNetworkStreamPhaseHandShake.cpp:133)
-        public const byte HEADER_GC_PING = 0xfe;               // 254 (packet.h:115)
-        public const byte HEADER_CG_PONG = 0xfe;               // 254 (packet.h:10)
+        public const byte HEADER_CG_HANDSHAKE = 0xff;          // 255 (packet.h:6)
+        public const byte HEADER_GC_HANDSHAKE = 0xff;          // 255 (packet.h:116)
+        public const byte HEADER_CG_TIME_SYNC = 0xfc;          // 252 (client Packet.h:135; send site PythonNetworkStreamPhaseHandShake.cpp:136)
+        public const byte HEADER_GC_PING = 44;                 // 0x2c (packet.h:172; client Packet.h:195; TPacketGCPing = header only)
+        public const byte HEADER_CG_PONG = 0xfe;               // 254 (packet.h:7; client Packet.h:138)
 
         // Key Agreement & Crypto
         public const byte HEADER_CG_KEY_AGREEMENT = 0xfb;      // 251 (packet.h:9)

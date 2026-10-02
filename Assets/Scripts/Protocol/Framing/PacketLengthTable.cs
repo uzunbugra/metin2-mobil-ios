@@ -8,9 +8,6 @@ namespace Metin2.Protocol.Framing
     /// here is treated as an unknown header by <see cref="PacketFramer"/>.
     ///
     /// Deliberately excluded (UNVERIFIED, see docs/protocol/packet-catalog.json):
-    /// - GC ping: PacketHeaders.cs says 0xfe (packet.h:115) while packet-catalog.json
-    ///   says header 44 (packet.h:172). Not registered until the conflict is resolved
-    ///   from source with a golden sample.
     /// - Server-to-client dynamic packets (chat etc.): their size lives inside each
     ///   struct at UNVERIFIED offsets (docs/protocol/protocol-inventory.md §1).
     /// </summary>
@@ -62,6 +59,18 @@ namespace Metin2.Protocol.Framing
             {
                 // sizeof(TPacketGCPhase) = BYTE header + BYTE phase, packet.h:814-818.
                 length = 2;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_PING)
+            {
+                // sizeof(TPacketGCPing) = BYTE header only, server packet.h:1259-1262
+                // (client mirror UserInterface/Packet.h:1839-1842).
+                // The 0xfe line in the previous PacketHeaders.cs was HEADER_GC_BINDUDP
+                // (packet.h:115), not PING; both server (packet.h:172) and client
+                // (Packet.h:195) define GC_PING = 44.
+                // PARTIALLY VERIFIED: no codec/golden sample yet, length from source only.
+                length = 1;
                 return true;
             }
 

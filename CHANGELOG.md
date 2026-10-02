@@ -86,6 +86,21 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   geçersiz func/koordinat/eleman-sayısı guard'ları.
 - `packet-catalog.json`: 7/3/8/5 VERIFIED (37 paket); `connection-flow.md` §6 hareket.
 - Test: 536 → 566 (+30).
+### Düzeltilen (kod)
+- `PacketHeaders.HEADER_GC_PING`: 0xfe → **44**. Kök neden: 0xfe/`packet.h:115`
+  aslında `HEADER_GC_BINDUDP` — önceki geliştirici satırı yanlış okumuş. Her iki
+  tarafta kanıtlandı: server `packet.h:172` + client `Packet.h:195` = 44.
+  README'deki "bilinen eksik" kapandı.
+- `PacketLengthTable`: GC_PING (44 → 1B, `TPacketGCPing` server packet.h:1259-1262,
+  client Packet.h:1839-1842) framer'a kaydedildi. Önceki davranışta sunucunun
+  periyodik keepalive ping'i (desc.cpp `ping_event`) unknown-header sayılıp
+  `DroppedBytes`'a yazılıyordu — sürekli çöp algısına yol açabilirdi.
+- `PacketHeaders.cs` bayat satır referansları kaynakla eşitlendi: CG_HANDSHAKE
+  (packet.h:6), GC_HANDSHAKE (116), CG_PONG (7), CG_TIME_SYNC (client Packet.h:135).
+- `packet-catalog.json` GC_PING `headerSource`: client Packet.h:195 (enum sabiti;
+  eski 1842 struct gövdesiydi).
+- Framer testleri +2 (566 → **568**): ping tek-bayt frame çöp-sayılmez,
+  coalesced akışta sırayla dequeues.
 ### Düzeltilen (test)
 - `RoundTrip("BESAMEKEY")` kaldırıldı: wire buffer 8+null'dur, 9-char status tele
   asla gelmez (codec doğruydu, test yanlıştı).
