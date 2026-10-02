@@ -45,6 +45,12 @@ namespace Metin2.Frontend
         {
             _world = GetComponent<DemoWorldBehaviour>();
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (_font == null)
+            {
+                // OS font fallback (builtin resource unavailable)
+                _font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            }
+
             CreateCanvas();
             BuildLoginScreen();
         }
@@ -258,7 +264,14 @@ namespace Metin2.Frontend
             textRect.anchorMax = Vector2.one;
             textRect.offsetMin = new Vector2(10f, 2f);
             textRect.offsetMax = new Vector2(-10f, -2f);
-            var text = textGo.AddComponent<Text>();
+            // The constructor already added the Text component; do not add a
+            // second one (two Texts on one CanvasRenderer corrupts the UI).
+            var text = textGo.GetComponent<Text>();
+            if (text == null)
+            {
+                throw new InvalidOperationException("InputField text component was not created.");
+            }
+
             text.font = _font;
             text.fontSize = 20;
             text.color = Color.white;
@@ -272,7 +285,12 @@ namespace Metin2.Frontend
             placeholderRect.anchorMax = Vector2.one;
             placeholderRect.offsetMin = new Vector2(10f, 2f);
             placeholderRect.offsetMax = new Vector2(-10f, -2f);
-            var placeholderText = placeholderGo.AddComponent<Text>();
+            var placeholderText = placeholderGo.GetComponent<Text>();
+            if (placeholderText == null)
+            {
+                throw new InvalidOperationException("InputField placeholder component was not created.");
+            }
+
             placeholderText.font = _font;
             placeholderText.fontSize = 20;
             placeholderText.color = new Color(1f, 1f, 1f, 0.35f);
@@ -318,7 +336,13 @@ namespace Metin2.Frontend
             textRect.anchorMax = Vector2.one;
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
-            var text = textGo.AddComponent<Text>();
+            // Constructor already added the Text; fetch it, never add a second.
+            var text = textGo.GetComponent<Text>();
+            if (text == null)
+            {
+                throw new InvalidOperationException("Button text component was not created.");
+            }
+
             text.font = _font;
             text.fontSize = 22;
             text.color = Color.white;
