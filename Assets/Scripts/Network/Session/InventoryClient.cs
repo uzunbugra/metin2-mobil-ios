@@ -140,6 +140,141 @@ namespace Metin2.Network.Session
             throw new HandshakeFailedException($"Unexpected item header 0x{header:X2}.");
         }
 
+        /// <summary>
+        /// Sends CG_ITEM_USE (11, 4B, encrypted): use the item at the cell.
+        /// The server re-validates everything (observer mode, item state); the
+        /// outcome arrives via the item/point update packets — there is no
+        /// direct use-reply packet.
+        /// </summary>
+        public async Task SendUseItemAsync(
+            byte window, ushort cell, CancellationToken cancellationToken = default)
+        {
+            ValidateWindow(window, nameof(window));
+
+            var packet = new PacketCGItemUse(window, cell);
+            await SendPacketAsync(PacketCGItemUseCodec.Serialize(packet), "CG_ITEM_USE", cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends CG_ITEM_USE_TO_ITEM (60, 7B, encrypted): apply the item at
+        /// Cell onto the item at TargetCell (e.g. upgrade stone on equipment).
+        /// </summary>
+        public async Task SendUseItemToItemAsync(
+            byte window, ushort cell, byte targetWindow, ushort targetCell,
+            CancellationToken cancellationToken = default)
+        {
+            ValidateWindow(window, nameof(window));
+            ValidateWindow(targetWindow, nameof(targetWindow));
+
+            var packet = new PacketCGItemUseToItem(window, cell, targetWindow, targetCell);
+            await SendPacketAsync(PacketCGItemUseToItemCodec.Serialize(packet), "CG_ITEM_USE_TO_ITEM", cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends CG_ITEM_MOVE (13, 8B, encrypted): move / stack / equip.
+        /// count 0 moves the whole stack; an equipment destination triggers
+        /// the server-side equip path (char_item.cpp:5557+ MoveItem).
+        /// </summary>
+        public async Task SendMoveItemAsync(
+            byte window, ushort cell, byte windowTo, ushort cellTo, byte count = 0,
+            CancellationToken cancellationToken = default)
+        {
+            ValidateWindow(window, nameof(window));
+            ValidateWindow(windowTo, nameof(windowTo));
+
+            var packet = new PacketCGItemMove(window, cell, windowTo, cellTo, count);
+            await SendPacketAsync(PacketCGItemMoveCodec.Serialize(packet), "CG_ITEM_MOVE", cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends CG_ITEM_DROP (12, 8B, encrypted) with gold 0: drop the whole
+        /// item stack at the cell (input_main.cpp:842-854).
+        /// </summary>
+        public async Task SendDropItemAsync(
+            byte window, ushort cell, CancellationToken cancellationToken = default)
+        {
+            ValidateWindow(window, nameof(window));
+
+            var packet = new PacketCGItemDrop(window, cell, gold: 0);
+            await SendPacketAsync(PacketCGItemDropCodec.Serialize(packet), "CG_ITEM_DROP", cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends CG_ITEM_DROP (12, 8B, encrypted) with gold &gt; 0: drop gold
+        /// (the cell is ignored by the server on this path).
+        /// </summary>
+        public async Task SendDropGoldAsync(
+            uint gold, CancellationToken cancellationToken = default)
+        {
+            if (gold == 0)
+            {
+                throw new ArgumentException("Gold amount must be positive to drop gold.", nameof(gold));
+            }
+
+            var packet = new PacketCGItemDrop(ItemWindow.Reserved, ushort.MaxValue, gold);
+            await SendPacketAsync(PacketCGItemDropCodec.Serialize(packet), "CG_ITEM_DROP", cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends CG_ITEM_DROP2 (20, 9B, encrypted): drop a partial stack
+        /// (input_main.cpp:856-869; client SendItemDropPacketNew).
+        /// </summary>
+        public async Task SendDropItemPartialAsync(
+            byte window, ushort cell, byte count, CancellationToken cancellationToken = default)
+        {
+            ValidateWindow(window, nameof(window));
+
+            if (count == 0)
+            {
+                throw new ArgumentException("Count must be positive for a partial drop.", nameof(count));
+            }
+
+            var packet = new PacketCGItemDrop2(window, cell, gold: 0, count);
+            await SendPacketAsync(PacketCGItemDrop2Codec.Serialize(packet), "CG_ITEM_DROP2", cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends CG_ITEM_PICKUP (15, 5B, encrypted): pick up a ground item by
+        /// VID. Distance/ownership are validated server-side; the item arrives
+        /// as GC_ITEM_SET.
+        /// </summary>
+        public async Task SendPickupAsync(
+            uint vid, CancellationToken cancellationToken = default)
+        {
+            if (vid == 0)
+            {
+                throw new ArgumentException("Ground item VID must not be zero.", nameof(vid));
+            }
+
+            var packet = new PacketCGItemPickup(vid);
+            await SendPacketAsync(PacketCGItemPickupCodec.Serialize(packet), "CG_ITEM_PICKUP", cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task SendPacketAsync(byte[] wire, string name, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _handshake.SendSecureAsync(wire, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!(ex is HandshakeFailedException))
+            {
+                throw new HandshakeFailedException($"Failed to send {name} packet.", ex);
+            }
+        }
+
+        /// <summary>
+        /// Fail-closed obvious-garbage guard only: the reserved window is the
+        /// NPOS marker and is rejected by the server's IsValidItemPosition
+        /// (length.h:701-720). All real validation stays server-side.
+        /// </summary>
+        private static void ValidateWindow(byte window, string paramName)
+        {
+            if (window == ItemWindow.Reserved)
+            {
+                throw new ArgumentException("Window must not be the reserved NPOS window.", paramName);
+            }
+        }
+
         private async Task<byte[]> ReceiveFrameAsync(CancellationToken cancellationToken)
         {
             byte[] frame;

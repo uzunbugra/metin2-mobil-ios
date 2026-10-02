@@ -58,6 +58,14 @@ namespace Metin2.Protocol.Constants
         public const byte HEADER_GC_ITEM_SET = 21;         // 0x15 (server packet.h:145; client Packet.h SET2)
         public const byte HEADER_GC_ITEM_UPDATE = 25;      // 0x19 (server packet.h:148; client Packet.h)
 
+        // Items (C2S actions; read side is GC 21/20/25)
+        public const byte HEADER_CG_ITEM_USE = 11;        // 0x0b (server packet.h:21; client Packet.h:22)
+        public const byte HEADER_CG_ITEM_DROP = 12;       // 0x0c (server packet.h:22; client Packet.h:23)
+        public const byte HEADER_CG_ITEM_MOVE = 13;       // 0x0d (server packet.h:23; client Packet.h:24)
+        public const byte HEADER_CG_ITEM_PICKUP = 15;     // 0x0f (server packet.h:24; client Packet.h:25)
+        public const byte HEADER_CG_ITEM_DROP2 = 20;      // 0x14 (server packet.h:30; client Packet.h:30)
+        public const byte HEADER_CG_ITEM_USE_TO_ITEM = 60; // 0x3c (server packet.h:46; client Packet.h:70)
+
         // Movement
         public const byte HEADER_CG_MOVE = 7;              // 0x07 (server packet.h:17; client Packet.h:18 CHARACTER_MOVE)
         public const byte HEADER_CG_SYNC_POSITION = 8;    // 0x08 (server packet.h:18; client Packet.h:19)

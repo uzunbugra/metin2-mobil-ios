@@ -235,5 +235,111 @@ namespace Metin2.Tests.EditMode.Network
 
             Assert.Throws<HandshakeFailedException>(() => new InventoryClient(handshake));
         }
+
+        [Test]
+        public async Task SendActions_Loopback_ServerReceivesExactBytes()
+        {
+            using var cts = new CancellationTokenSource();
+            CancellationToken token = TestToken(cts);
+
+            using var harness = await ItemHarness.EstablishAsync(token).ConfigureAwait(false);
+            var inventory = new InventoryClient(harness.Client);
+
+            Task serverRound = Task.Run(async () =>
+            {
+                // Move inventory cell 5 -> equipment cell 10, whole stack.
+                byte[] moveWire = await ReadExactAsync(harness.ServerStream, PacketCGItemMove.PacketSize, token).ConfigureAwait(false);
+                harness.ServerSession.Decrypt(moveWire, 0, moveWire.Length);
+                PacketCGItemMove move = PacketCGItemMoveCodec.Deserialize(moveWire);
+                Assert.AreEqual(ItemWindow.Inventory, move.Window);
+                Assert.AreEqual(5, move.Cell);
+                Assert.AreEqual(ItemWindow.Equipment, move.WindowTo);
+                Assert.AreEqual(10, move.CellTo);
+                Assert.AreEqual(0, move.Count);
+
+                // Use the item at inventory cell 2.
+                byte[] useWire = await ReadExactAsync(harness.ServerStream, PacketCGItemUse.PacketSize, token).ConfigureAwait(false);
+                harness.ServerSession.Decrypt(useWire, 0, useWire.Length);
+                PacketCGItemUse use = PacketCGItemUseCodec.Deserialize(useWire);
+                Assert.AreEqual(ItemWindow.Inventory, use.Window);
+                Assert.AreEqual(2, use.Cell);
+
+                // Partial drop of 3 from cell 7 (DROP2).
+                byte[] drop2Wire = await ReadExactAsync(harness.ServerStream, PacketCGItemDrop2.PacketSize, token).ConfigureAwait(false);
+                harness.ServerSession.Decrypt(drop2Wire, 0, drop2Wire.Length);
+                PacketCGItemDrop2 drop2 = PacketCGItemDrop2Codec.Deserialize(drop2Wire);
+                Assert.AreEqual(ItemWindow.Inventory, drop2.Window);
+                Assert.AreEqual(7, drop2.Cell);
+                Assert.AreEqual(0u, drop2.Gold);
+                Assert.AreEqual(3, drop2.Count);
+
+                // Pickup ground item VID 900.
+                byte[] pickupWire = await ReadExactAsync(harness.ServerStream, PacketCGItemPickup.PacketSize, token).ConfigureAwait(false);
+                harness.ServerSession.Decrypt(pickupWire, 0, pickupWire.Length);
+                PacketCGItemPickup pickup = PacketCGItemPickupCodec.Deserialize(pickupWire);
+                Assert.AreEqual(900u, pickup.Vid);
+            }, token);
+
+            await inventory.SendMoveItemAsync(ItemWindow.Inventory, 5, ItemWindow.Equipment, 10, 0, token).ConfigureAwait(false);
+            await inventory.SendUseItemAsync(ItemWindow.Inventory, 2, token).ConfigureAwait(false);
+            await inventory.SendDropItemPartialAsync(ItemWindow.Inventory, 7, 3, token).ConfigureAwait(false);
+            await inventory.SendPickupAsync(900, token).ConfigureAwait(false);
+
+            await serverRound.ConfigureAwait(false);
+        }
+
+        [Test]
+        public async Task SendUseItemToItemAndGoldDrop_Loopback_ExactBytes()
+        {
+            using var cts = new CancellationTokenSource();
+            CancellationToken token = TestToken(cts);
+
+            using var harness = await ItemHarness.EstablishAsync(token).ConfigureAwait(false);
+            var inventory = new InventoryClient(harness.Client);
+
+            Task serverRound = Task.Run(async () =>
+            {
+                byte[] useToWire = await ReadExactAsync(harness.ServerStream, PacketCGItemUseToItem.PacketSize, token).ConfigureAwait(false);
+                harness.ServerSession.Decrypt(useToWire, 0, useToWire.Length);
+                PacketCGItemUseToItem useTo = PacketCGItemUseToItemCodec.Deserialize(useToWire);
+                Assert.AreEqual(ItemWindow.Inventory, useTo.Window);
+                Assert.AreEqual(5, useTo.Cell);
+                Assert.AreEqual(ItemWindow.Equipment, useTo.TargetWindow);
+                Assert.AreEqual(6, useTo.TargetCell);
+
+                // Gold drop: gold > 0, cell ignored by the server (input_main.cpp:850-853).
+                byte[] dropWire = await ReadExactAsync(harness.ServerStream, PacketCGItemDrop.PacketSize, token).ConfigureAwait(false);
+                harness.ServerSession.Decrypt(dropWire, 0, dropWire.Length);
+                PacketCGItemDrop drop = PacketCGItemDropCodec.Deserialize(dropWire);
+                Assert.AreEqual(12345u, drop.Gold);
+            }, token);
+
+            await inventory.SendUseItemToItemAsync(
+                ItemWindow.Inventory, 5, ItemWindow.Equipment, 6, token).ConfigureAwait(false);
+            await inventory.SendDropGoldAsync(12345, token).ConfigureAwait(false);
+
+            await serverRound.ConfigureAwait(false);
+        }
+
+        [Test]
+        public async Task SendMoveItem_ReservedWindow_ThrowsArgument()
+        {
+            using var cts = new CancellationTokenSource();
+            CancellationToken token = TestToken(cts);
+
+            using var harness = await ItemHarness.EstablishAsync(token).ConfigureAwait(false);
+            var inventory = new InventoryClient(harness.Client);
+
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await inventory.SendMoveItemAsync(ItemWindow.Reserved, 1, ItemWindow.Inventory, 2, 0, token).ConfigureAwait(false));
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await inventory.SendUseItemAsync(ItemWindow.Reserved, 1, token).ConfigureAwait(false));
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await inventory.SendPickupAsync(0, token).ConfigureAwait(false));
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await inventory.SendDropGoldAsync(0, token).ConfigureAwait(false));
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await inventory.SendDropItemPartialAsync(ItemWindow.Inventory, 1, 0, token).ConfigureAwait(false));
+        }
     }
 }

@@ -24,8 +24,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Item Sistemi (adım 2) | ✅ Tamamlandı | `InventoryClient`: set/clear/update eventleri (loopback kanıtlı) |
 | Sprint 5 — Hareket (adım 3) | ✅ Tamamlandı | `MovementClient`: move/sync gönderim+alım, dinamik framer (loopback kanıtlı) |
 | Sprint 5 — Temel Combat (adım 4) | ✅ Tamamlandı | `CombatClient`: saldırı + point/stun/dead/motion/damage akışı (loopback kanıtlı) |
+| Sprint 5 — Envanter Aksiyonları (adım 5) | ✅ Tamamlandı | `InventoryClient` gönderim: use/move/drop/pickup/use-to-item (loopback kanıtlı) |
 
-**Test: 636/636 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 681/681 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -36,7 +37,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
   - `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game
   - `docs/protocol/protocol-inventory.md` — 60+ CG, 80+ GC header, GD/DG/GG header'ları, framing kuralları
-  - `docs/protocol/packet-catalog.json` — 43 bağlantı paketi (36 VERIFIED + 7 PARTIALLY), makine-okunur katalog
+  - `docs/protocol/packet-catalog.json` — 49 bağlantı paketi (42 VERIFIED + 7 PARTIALLY), makine-okunur katalog
 - [`docs/sprints/SPRINT_05-game-world.md`](docs/sprints/SPRINT_05-game-world.md) — Loading stats + spawn kaydı
 - Commit: `dac18f6`
 
@@ -313,6 +314,19 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   HEADER_GC_ATTACK (12) bu build'de ölü sabit — belgelendi, implemente edilmedi.
 - Test: 583 → **636/636** (+53).
 
+### Adım 27 — Envanter Yazma Aksiyonları (Sprint 5 devamı)
+- Kaynak iz sürme: `CInputMain` item handler'ları (input_main.cpp:830-884, observer-mode
+  guard'lı dispatch 3142-3172) → `CHARACTER::MoveItem` (char_item.cpp:5557+: pozisyon
+  geçerliliği, exchanging/locked/irremovable, equip/stack-merge yolları) — sonuçlar
+  zaten implement edilen GC 21/20/25 + point değişimleriyle döner.
+- 6 CG paket+codec: ITEM_USE (11, 4B), ITEM_MOVE (13, 8B), ITEM_DROP (12, 8B),
+  ITEM_DROP2 (20, 9B), ITEM_PICKUP (15, 5B), ITEM_USE_TO_ITEM (60, 7B) — hepsi
+  paylaşımlı `TItemPos` (3B) kullanır; `ItemWindow` sabitleri (EWindows).
+- `InventoryClient` artık gönderir de: use/use-to-item/move (count 0 = tüm stack)/
+  drop-item/drop-gold/drop-partial/pickup — fail-closed guard'lar (NPOS window,
+  vid=0, gold=0, count=0), gerçek doğrulama sunucuda.
+- Test: 636 → **681/681** (+45).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -370,6 +384,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | Keepalive (2) | `HandshakeClientTests` | Loopback: handshake ortası düz-metin ping→pong, şifreli faz ping→pong + sonraki frame |
 | Combat-Codecs (32) | `PacketCGAttackTests`, `PacketGCPointChangeTests`, `PacketGCStunTests`, `PacketGCDeadTests`, `PacketGCMotionTests`, `PacketGCDamageInfoTests` | Golden layout (int-header quirk dahil), round-trip, truncation, header |
 | Combat (5) | `CombatClientTests` | Loopback saldırı turu + 5 event tipi, faz guard'ları (stun Loading'de reddi), vid guard |
+| ItemAction-Codecs (34) | `PacketCGItemUseTests`, `PacketCGItemMoveTests`, `PacketCGItemDropTests`, `PacketCGItemDrop2Tests`, `PacketCGItemPickupTests`, `PacketCGItemUseToItemTests` | Golden layout (TItemPos), item/gold varyantları, round-trip, truncation, header |
+| Inventory-Send (3) | `InventoryClientTests` | Loopback move/use/drop2/pickup + use-to-item/gold-drop turu, NPOS/vid/gold/count guard'ları |
 
 ## Mimari
 
@@ -396,8 +412,8 @@ Assets/Scripts/
 │   └── Logging/    — ILogger, SecretRedactor, UnityLogger
 ├── Protocol/       (Metin2.Protocol.asmdef — noEngineReferences: true)
 │   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O + float)
-│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCPingCodec, PacketCGPongCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec, ItemFieldCodec, PacketGCItem{Set,Del,Update}Codec, PacketCGMoveCodec, PacketGCMoveCodec, SyncPositionElementCodec, PacketCGSyncPositionCodec, PacketGCSyncPositionCodec, PacketCGAttackCodec, PacketGCPointChangeCodec, PacketGCStunCodec, PacketGCDeadCodec, PacketGCMotionCodec, PacketGCDamageInfoCodec
-│   ├── Constants/  — PacketHeaders, PhaseType, PointTypes
+│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCPingCodec, PacketCGPongCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec, ItemFieldCodec, PacketGCItem{Set,Del,Update}Codec, PacketCGMoveCodec, PacketGCMoveCodec, SyncPositionElementCodec, PacketCGSyncPositionCodec, PacketGCSyncPositionCodec, PacketCGAttackCodec, PacketGCPointChangeCodec, PacketGCStunCodec, PacketGCDeadCodec, PacketGCMotionCodec, PacketGCDamageInfoCodec, PacketCGItemUseCodec, PacketCGItemMoveCodec, PacketCGItemDropCodec, PacketCGItemDrop2Codec, PacketCGItemPickupCodec, PacketCGItemUseToItemCodec
+│   ├── Constants/  — PacketHeaders, PhaseType, PointTypes, ItemWindow
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
 │   │                  CipherEngineNotImplementedException, HandshakeFailedException
 │   ├── Framing/    — PacketLengthTable, PacketFramer (TCP stream → frame)
@@ -405,9 +421,9 @@ Assets/Scripts/
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
-│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCPing, PacketCGPong, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, ItemAttribute, PacketGCItem{Set,Del,Update}, MoveFunc, PacketCGMove, PacketGCMove, SyncPositionElement, PacketCGSyncPosition, PacketGCSyncPosition, PacketCGAttack, PacketGCPointChange, PacketGCStun, PacketGCDead, PacketGCMotion, PacketGCDamageInfo, IPacket
+│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCPing, PacketCGPong, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, ItemAttribute, PacketGCItem{Set,Del,Update}, MoveFunc, PacketCGMove, PacketGCMove, SyncPositionElement, PacketCGSyncPosition, PacketGCSyncPosition, PacketCGAttack, PacketGCPointChange, PacketGCStun, PacketGCDead, PacketGCMotion, PacketGCDamageInfo, PacketCGItemUse, PacketCGItemMove, PacketCGItemDrop, PacketCGItemDrop2, PacketCGItemPickup, PacketCGItemUseToItem, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa + keepalive ping→pong), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25), MovementClient (7/8→3/5), CombatClient (2→17/13/14/36/135)
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa + keepalive ping→pong), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25 + C2S 11/12/13/15/20/60), MovementClient (7/8→3/5), CombatClient (2→17/13/14/36/135)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
@@ -429,7 +445,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 636/636 başarılı ✅**
+**Son test sonucu: 681/681 başarılı ✅**
 
 ## Dokümanlar
 
@@ -443,7 +459,7 @@ dotnet test Metin2.Tests.csproj
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
-- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 43 paket: 36 VERIFIED + 7 PARTIALLY (combat +6)
+- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 49 paket: 42 VERIFIED + 7 PARTIALLY (item aksiyonları +6)
 
 ## Bilinen Eksikler (UNVERIFIED)
 

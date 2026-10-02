@@ -123,6 +123,24 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - `packet-catalog.json`: +6 paket → toplam 43 (36 VERIFIED, 7 PARTIALLY).
 - Test: 583 → 636 (+53: CGAttack 5, PointChange 7, Stun 5, Dead 5, Motion 5,
   DamageInfo 5, framer 2, registry 3, Combat 5, PointTypes 1).
+- Envanter yazma aksiyonları (Sprint 5 devamı): 6 CG paket + codec +
+  `InventoryClient` gönderim metotları.
+- `PacketCGItemUse` (11, 4B), `PacketCGItemMove` (13, 8B), `PacketCGItemDrop`
+  (12, 8B), `PacketCGItemDrop2` (20, 9B), `PacketCGItemPickup` (15, 5B),
+  `PacketCGItemUseToItem` (60, 7B) — hepsi `TItemPos` (window u8 + cell u16,
+  length.h:685-752, pack(1)) taşır; kodlar paylaşımlı `ItemFieldCodec` kullanır.
+- `ItemWindow` sabitleri (EWindows, length.h:445-455: Reserved=0, Inventory=1,
+  Equipment=2, Safebox=3, Mall=4, DragonSoul=5, Belt=6, Ground=7).
+- `InventoryClient` yeni gönderim API'si: `SendUseItemAsync`,
+  `SendUseItemToItemAsync`, `SendMoveItemAsync` (count 0 = tüm stack),
+  `SendDropItemAsync` / `SendDropGoldAsync` / `SendDropItemPartialAsync`,
+  `SendPickupAsync` — fail-closed guard'lar (Reserved/NPOS window, vid=0,
+  gold=0, count=0); gerçek doğrulama sunucuda (MoveItem char_item.cpp:5557+).
+- Sonuç paketleri zaten mevcut (GC 21/20/25 + point değişimleri) — yeni S2C
+  paket gerekmedi.
+- `packet-catalog.json`: +6 paket → toplam 49 (42 VERIFIED, 7 PARTIALLY).
+- Test: 636 → 681 (+45: codec 34, InventoryClient loopback send 3 + guard
+  senaryoları).
 ### Düzeltilen (kod)
 - `PacketHeaders.HEADER_GC_PING`: 0xfe → **44**. Kök neden: 0xfe/`packet.h:115`
   aslında `HEADER_GC_BINDUDP` — önceki geliştirici satırı yanlış okumuş. Her iki
