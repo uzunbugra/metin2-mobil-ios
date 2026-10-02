@@ -5,7 +5,8 @@
         "Metin2.Core",
         "Metin2.Protocol",
         "Metin2.Network",
-        "Metin2.Gameplay"
+        "Metin2.Gameplay",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

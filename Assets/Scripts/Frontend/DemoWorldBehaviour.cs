@@ -35,6 +35,7 @@ namespace Metin2.Frontend
         private GameFlow _flow;
         private CancellationTokenSource _cts;
         private readonly ConcurrentQueue<Action> _mainThread = new ConcurrentQueue<Action>();
+        private bool _attached;
 
         private readonly Dictionary<uint, EntityView> _entities = new Dictionary<uint, EntityView>();
         private Transform _cameraTransform;
@@ -57,8 +58,48 @@ namespace Metin2.Frontend
             }
         }
 
+        /// <summary>
+        /// Takes over an already-connected session from
+        /// <see cref="DemoAppBehaviour"/>: renders the world, handles input and
+        /// runs the event pump. The caller has already completed login, channel,
+        /// character select and world entry.
+        /// </summary>
+        public void Attach(GameFlow flow, DemoServer demo)
+        {
+            if (flow == null || demo == null)
+            {
+                throw new ArgumentNullException(flow == null ? nameof(flow) : nameof(demo));
+            }
+
+            if (_attached || _flow != null)
+            {
+                throw new InvalidOperationException("World view is already attached.");
+            }
+
+            _attached = true;
+            _demo = demo;
+            _flow = flow;
+            _cts = new CancellationTokenSource();
+
+            CreateWorld();
+            SubscribeFlowEvents();
+
+            _maxHp = flow.Stats.Points[PointTypes.Hp];
+            _hp = flow.Stats.Points[PointTypes.Hp];
+            SpawnPlayer(flow.MainCharacter);
+            Log($"attached: {flow.MainCharacter.Name} (VID {flow.MainCharacter.Vid}) HP {_hp}/{_maxHp}");
+
+            Task.Run(() => flow.RunEventPumpAsync(_cts.Token), _cts.Token);
+        }
+
         private void Start()
         {
+            if (_attached || _flow != null)
+            {
+                // Attached mode: the app already initialized us.
+                return;
+            }
+
             _demo = new DemoServer();
             (int authPort, int gamePort) = _demo.Start();
             _cts = new CancellationTokenSource();
@@ -66,6 +107,14 @@ namespace Metin2.Frontend
             CreateWorld();
 
             _flow = new GameFlow();
+            SubscribeFlowEvents();
+
+            Log("demo server started, connecting...");
+            Task.Run(() => RunJourneyAsync(authPort, gamePort, _cts.Token), _cts.Token);
+        }
+
+        private void SubscribeFlowEvents()
+        {
             _flow.StateChanged += state => Enqueue(() => Log($"flow state -> {state}"));
             _flow.ServerPhaseChanged += phase => Enqueue(() => Log($"server phase -> {phase}"));
             _flow.EntitySpawned += add => Enqueue(() => SpawnEntity(add));
@@ -73,9 +122,6 @@ namespace Metin2.Frontend
             _flow.EntityMoved += move => Enqueue(() => MovePlayer(move));
             _flow.ItemChanged += item => Enqueue(() => Log($"item: {item.EventKind} cell {item.Cell}"));
             _flow.CombatEventReceived += combat => Enqueue(() => OnCombatEvent(combat));
-
-            Log("demo server started, connecting...");
-            Task.Run(() => RunJourneyAsync(authPort, gamePort, _cts.Token), _cts.Token);
         }
 
         private async Task RunJourneyAsync(int authPort, int gamePort, CancellationToken token)
