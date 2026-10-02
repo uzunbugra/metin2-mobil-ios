@@ -5,6 +5,7 @@
         "Metin2.Core",
         "Metin2.Protocol",
         "Metin2.Network",
+        "Metin2.Gameplay",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
@@ -13,13 +14,14 @@
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
     "autoReferenced": false,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
     "versionDefines": [],
-    "noEngineReferences": false,
-    "optionalUnityReferences": [
-        "TestAssemblies"
-    ]
+    "noEngineReferences": false
 }
