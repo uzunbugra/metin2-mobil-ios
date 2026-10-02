@@ -1,5 +1,6 @@
 using Metin2.Core.Config;
 using Metin2.Core.Logging;
+using ILogger = Metin2.Core.Logging.ILogger;
 #if UNITY_5_3_OR_NEWER || UNITY_EDITOR
 using UnityEngine;
 
