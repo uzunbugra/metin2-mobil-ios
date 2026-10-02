@@ -30,6 +30,8 @@ namespace Metin2.Frontend
         private const float MoveSendInterval = 0.2f;
         private const float MoveSpeedCmPerSecond = 300f;
         private const int CentimetersPerUnit = 100;
+        private const float JoystickRadiusPx = 140f;
+        private const float JoystickDeadZonePx = 20f;
 
         private DemoServer _demo;
         private GameFlow _flow;
@@ -45,6 +47,13 @@ namespace Metin2.Frontend
         private int _maxHp = 1000;
         private float _lastMoveSent;
         private bool _journeyFailed;
+
+        // Touch controls (guide §9.1): left half = virtual joystick, bottom
+        // right = attack zone. Zone-based multi-touch — no EventSystem needed,
+        // so the joystick and the attack button work simultaneously.
+        private int _joystickFingerId = -1;
+        private Vector2 _joystickOrigin;
+        private Vector2 _joystickCurrent;
 
         private readonly struct EntityView
         {
@@ -171,6 +180,7 @@ namespace Metin2.Frontend
                 return;
             }
 
+            HandleTouchInput();
             HandleMoveInput();
             HandleAttackInput();
             FollowPlayer();
@@ -286,11 +296,71 @@ namespace Metin2.Frontend
 
         // --- input ---------------------------------------------------------------
 
-        private void HandleMoveInput()
+        private void HandleTouchInput()
         {
+            for (int i = 0; i < Input.touchCount; i++)
+            {
+                Touch touch = Input.GetTouch(i);
+
+                if (touch.phase == TouchPhase.Began)
+                {
+                    if (_joystickFingerId < 0 && touch.position.x < Screen.width * 0.5f)
+                    {
+                        _joystickFingerId = touch.fingerId;
+                        _joystickOrigin = touch.position;
+                        _joystickCurrent = touch.position;
+                    }
+                    else if (AttackZoneScreen.Contains(touch.position))
+                    {
+                        TryAttack();
+                    }
+                }
+                else if (touch.fingerId == _joystickFingerId)
+                {
+                    if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                    {
+                        _joystickFingerId = -1;
+                    }
+                    else
+                    {
+                        _joystickCurrent = touch.position;
+                    }
+                }
+            }
+        }
+
+        /// <summary>Attack zone in screen coordinates (origin bottom-left, like Touch.position).</summary>
+        private Rect AttackZoneScreen => new Rect(Screen.width - 300f, 20f, 280f, 200f);
+
+        private Vector2 ReadMoveDirection()
+        {
+            // Keyboard (editor / desktop testing)
             float horizontal = Input.GetAxisRaw("Horizontal");
             float vertical = Input.GetAxisRaw("Vertical");
-            if (Mathf.Approximately(horizontal, 0f) && Mathf.Approximately(vertical, 0f))
+            if (!Mathf.Approximately(horizontal, 0f) || !Mathf.Approximately(vertical, 0f))
+            {
+                return new Vector2(horizontal, vertical).normalized;
+            }
+
+            // Touch joystick
+            if (_joystickFingerId < 0)
+            {
+                return Vector2.zero;
+            }
+
+            Vector2 delta = _joystickCurrent - _joystickOrigin;
+            if (delta.magnitude < JoystickDeadZonePx)
+            {
+                return Vector2.zero;
+            }
+
+            return Vector2.ClampMagnitude(delta, JoystickRadiusPx) / JoystickRadiusPx;
+        }
+
+        private void HandleMoveInput()
+        {
+            Vector2 direction = ReadMoveDirection();
+            if (Mathf.Approximately(direction.x, 0f) && Mathf.Approximately(direction.y, 0f))
             {
                 return;
             }
@@ -302,7 +372,6 @@ namespace Metin2.Frontend
 
             _lastMoveSent = Time.time;
 
-            var direction = new Vector2(horizontal, vertical).normalized;
             var target = _playerPos + direction * (MoveSpeedCmPerSecond * MoveSendInterval);
             float headingDegrees = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
 
@@ -318,7 +387,15 @@ namespace Metin2.Frontend
 
         private void HandleAttackInput()
         {
-            if (!Input.GetKeyDown(KeyCode.Space))
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                TryAttack();
+            }
+        }
+
+        private void TryAttack()
+        {
+            if (_flow == null || _flow.State != GameFlowState.InWorld)
             {
                 return;
             }
@@ -405,7 +482,77 @@ namespace Metin2.Frontend
 
             GUI.Box(new Rect(Screen.width - 320, 10, 310, 74), "Controls");
             GUI.Label(new Rect(Screen.width - 310, 34, 290, 60),
-                "WASD / arrows: move (server-authoritative)\nSPACE: attack nearest mob (201)");
+                "Touch: sol yarı = joystick, SALDIR = attack\nKeyboard: WASD move, SPACE attack");
+
+            DrawTouchControls();
+        }
+
+        /// <summary>
+        /// Renders the virtual joystick (while active) and the attack zone.
+        /// GUI coordinates are top-left origin; Touch.position is bottom-left,
+        /// so Y is flipped when mapping.
+        /// </summary>
+        private void DrawTouchControls()
+        {
+            if (_flow == null || _flow.State != GameFlowState.InWorld)
+            {
+                return;
+            }
+
+            // Attack zone (visual only — input is zone-based multi-touch).
+            Rect attackGui = ToGuiRect(AttackZoneScreen);
+            Color previous = GUI.color;
+            GUI.color = new Color(0.75f, 0.25f, 0.2f, 0.45f);
+            GUI.Box(attackGui, "SALDIR");
+            GUI.color = previous;
+
+            if (_joystickFingerId < 0)
+            {
+                return;
+            }
+
+            Vector2 knobDelta = Vector2.ClampMagnitude(_joystickCurrent - _joystickOrigin, JoystickRadiusPx);
+            Vector2 knobScreen = _joystickOrigin + knobDelta;
+
+            GUI.color = new Color(1f, 1f, 1f, 0.25f);
+            DrawCircle(new Vector2(_joystickOrigin.x, Screen.height - _joystickOrigin.y), JoystickRadiusPx);
+            GUI.color = new Color(1f, 1f, 1f, 0.65f);
+            DrawCircle(new Vector2(knobScreen.x, Screen.height - knobScreen.y), JoystickRadiusPx * 0.4f);
+            GUI.color = previous;
+        }
+
+        private static Rect ToGuiRect(Rect screenRect)
+        {
+            return new Rect(
+                screenRect.x,
+                Screen.height - screenRect.y - screenRect.height,
+                screenRect.width,
+                screenRect.height);
+        }
+
+        private static Texture2D _circleTexture;
+
+        private static void DrawCircle(Vector2 guiCenter, float radius)
+        {
+            if (_circleTexture == null)
+            {
+                int size = 128;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                float center = (size - 1) * 0.5f;
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        float distance = Mathf.Sqrt((x - center) * (x - center) + (y - center) * (y - center));
+                        texture.SetPixel(x, y, distance <= center ? Color.white : Color.clear);
+                    }
+                }
+
+                texture.Apply();
+                _circleTexture = texture;
+            }
+
+            GUI.DrawTexture(new Rect(guiCenter.x - radius, guiCenter.y - radius, radius * 2f, radius * 2f), _circleTexture);
         }
 
         private void OnApplicationQuit()
