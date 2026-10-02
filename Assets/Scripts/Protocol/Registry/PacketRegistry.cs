@@ -161,6 +161,18 @@ namespace Metin2.Protocol.Registry
                 2,
                 allowedInAllPhases: true));
 
+            // Server keepalive: the ping event is created in the DESC constructor
+            // (desc.cpp:227-233) and fires in EVERY phase, including plaintext
+            // handshake; the C++ client answers it in all five client phases
+            // (PhaseHandShake.cpp:63, PhaseLogin.cpp:50, PhaseSelect.cpp:137,
+            // PhaseLoading.cpp:140, PhaseGame.cpp:381).
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_PING,
+                "HEADER_GC_PING",
+                PacketDirection.ServerToClient,
+                1,
+                allowedInAllPhases: true));
+
             return registry;
         }
 

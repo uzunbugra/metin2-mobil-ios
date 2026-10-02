@@ -237,6 +237,9 @@ namespace Metin2.Network.Session
         /// Receives one post-handshake frame (encrypted on the wire, plaintext out).
         /// Decrypts the raw stream BEFORE framing (server encrypts the whole stream,
         /// desc.cpp:460-461; client decrypts on recv, NetStream.cpp:109).
+        /// Server keepalive pings (GC_PING, every phase) are answered with an
+        /// encrypted CG_PONG and skipped, mirroring RecvPingPacket
+        /// (PythonNetworkStream.cpp:636-656); callers never see them.
         /// </summary>
         public async Task<byte[]> ReceiveSecureFrameAsync(CancellationToken cancellationToken = default)
         {
@@ -248,6 +251,12 @@ namespace Metin2.Network.Session
             {
                 if (_secureFramer.TryDequeue(out byte[] frame) && frame != null)
                 {
+                    if (frame.Length > 0 && frame[0] == PacketHeaders.HEADER_GC_PING)
+                    {
+                        await SendPongAsync(encrypted: true, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
                     return frame;
                 }
 
@@ -291,6 +300,15 @@ namespace Metin2.Network.Session
                         continue;
                     }
 
+                    if (frame[0] == PacketHeaders.HEADER_GC_PING)
+                    {
+                        // The ping event starts in the DESC constructor
+                        // (desc.cpp:227-233), so a keepalive can arrive while
+                        // the handshake is still plaintext; answer in plaintext.
+                        await SendPongAsync(encrypted: false, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
                     if (frame[0] != expectedHeader)
                     {
                         throw new HandshakeFailedException(
@@ -316,6 +334,26 @@ namespace Metin2.Network.Session
                 }
 
                 framer.Append(new ReadOnlySpan<byte>(chunk, 0, received));
+            }
+        }
+
+        /// <summary>
+        /// Sends one CG_PONG (1 byte) in answer to a server keepalive ping.
+        /// Plaintext while the handshake is unfinished, encrypted afterwards —
+        /// the server accepts PONG in every phase (input.cpp:132-135, 551-552)
+        /// and closes the session on the next ping cycle without it
+        /// (desc.cpp:174-180).
+        /// </summary>
+        private async Task SendPongAsync(bool encrypted, CancellationToken cancellationToken)
+        {
+            byte[] pong = PacketCGPongCodec.Serialize(new PacketCGPong());
+            if (encrypted)
+            {
+                await SendSecureAsync(pong, 0, pong.Length, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await _connection.SendAsync(pong, 0, pong.Length, cancellationToken).ConfigureAwait(false);
             }
         }
 

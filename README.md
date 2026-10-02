@@ -24,7 +24,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Item Sistemi (adım 2) | ✅ Tamamlandı | `InventoryClient`: set/clear/update eventleri (loopback kanıtlı) |
 | Sprint 5 — Hareket (adım 3) | ✅ Tamamlandı | `MovementClient`: move/sync gönderim+alım, dinamik framer (loopback kanıtlı) |
 
-**Test: 568/568 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 583/583 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -35,7 +35,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
   - `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game
   - `docs/protocol/protocol-inventory.md` — 60+ CG, 80+ GC header, GD/DG/GG header'ları, framing kuralları
-  - `docs/protocol/packet-catalog.json` — 37 bağlantı paketi, makine-okunur katalog
+  - `docs/protocol/packet-catalog.json` — 39 bağlantı paketi, makine-okunur katalog
 - [`docs/sprints/SPRINT_05-game-world.md`](docs/sprints/SPRINT_05-game-world.md) — Loading stats + spawn kaydı
 - Commit: `dac18f6`
 
@@ -287,6 +287,19 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 - `MovementClient`: quantize + fail-closed validasyon; gönderim/alım akışları.
 - Test: 536 → **566/566** (+30: CGMove 6, GCMove 6, Sync 8, framer 3, registry 1, Movement 6).
 
+### Adım 25 — Keepalive Ping/Pong (Sprint 5 sonrası sağlamlaştırma)
+- Kaynak iz sürme: `ping_event` DESC kurucusunda başlar (`desc.cpp:227-233`) — yani
+  handshake fazında bile düz-metin ping gelebilir; sunucu pong yoksa sonraki çevrimde
+  oturumu kapatır (`desc.cpp:174-180`, çevrim varsayılanı 60s, `config.cpp:32`).
+  İstemci beş faz döngüsünün hepsinde `RecvPingPacket` ile yanıtlar
+  (`PythonNetworkStream.cpp:636-656`).
+- `PacketGCPing` (44, 1B) + `PacketCGPong` (0xfe, 1B) paket+codec'leri; registry'ye
+  GC_PING tüm-fazlar kaydı.
+- `HandshakeClient` iki alım yolunda da ping'i otomatik yanıtlar (kanal durumuna uyar:
+  handshake öncesi düz-metin, sonrası şifreli pong) ve çağırıcıdan gizler — tüm
+  session client'ları bu davranışı ücretsiz devralır.
+- Test: 568 → **583/583** (+15: codec 12, registry 1, loopback 2).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -340,6 +353,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | Inventory (5) | `InventoryClientTests` | Loopback set→update→clear, Game-fazı kabulü, fail-closed |
 | Movement-Codecs (20) | `PacketCGMoveTests`, `PacketGCMoveTests`, `SyncPositionCodecTests` | Golden layout, dynamic wSize, clamp, misalignment |
 | Movement (6) | `MovementClientTests` | Loopback niyet+yayın, sync turu, quantize, guard'lar |
+| Keepalive-Codecs (12) | `PacketGCPingTests`, `PacketCGPongTests` | 1B golden byte, round-trip, truncation, header (0xfe ≠ GC_PING regression) |
+| Keepalive (2) | `HandshakeClientTests` | Loopback: handshake ortası düz-metin ping→pong, şifreli faz ping→pong + sonraki frame |
 
 ## Mimari
 
@@ -366,7 +381,7 @@ Assets/Scripts/
 │   └── Logging/    — ILogger, SecretRedactor, UnityLogger
 ├── Protocol/       (Metin2.Protocol.asmdef — noEngineReferences: true)
 │   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O + float)
-│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec, ItemFieldCodec, PacketGCItem{Set,Del,Update}Codec, PacketCGMoveCodec, PacketGCMoveCodec, SyncPositionElementCodec, PacketCGSyncPositionCodec, PacketGCSyncPositionCodec
+│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCPingCodec, PacketCGPongCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec, ItemFieldCodec, PacketGCItem{Set,Del,Update}Codec, PacketCGMoveCodec, PacketGCMoveCodec, SyncPositionElementCodec, PacketCGSyncPositionCodec, PacketGCSyncPositionCodec
 │   ├── Constants/  — PacketHeaders, PhaseType
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
 │   │                  CipherEngineNotImplementedException, HandshakeFailedException
@@ -375,9 +390,9 @@ Assets/Scripts/
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
-│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, ItemAttribute, PacketGCItem{Set,Del,Update}, MoveFunc, PacketCGMove, PacketGCMove, SyncPositionElement, PacketCGSyncPosition, PacketGCSyncPosition, IPacket
+│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCPing, PacketCGPong, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, ItemAttribute, PacketGCItem{Set,Del,Update}, MoveFunc, PacketCGMove, PacketGCMove, SyncPositionElement, PacketCGSyncPosition, PacketGCSyncPosition, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25), MovementClient (7/8→3/5)
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa + keepalive ping→pong), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25), MovementClient (7/8→3/5)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
@@ -399,7 +414,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 568/568 başarılı ✅**
+**Son test sonucu: 583/583 başarılı ✅**
 
 ## Dokümanlar
 
@@ -413,7 +428,7 @@ dotnet test Metin2.Tests.csproj
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
-- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 37 VERIFIED paket (7/3/8/5 eklendi)
+- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 39 VERIFIED paket (ping/pong eklendi)
 
 ## Bilinen Eksikler (UNVERIFIED)
 

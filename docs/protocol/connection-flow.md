@@ -227,4 +227,11 @@ dynamic=`Peek(TDynamicSizePacketHeader)` then `Peek(size)`
 (`Packet.h:1087-1094`). Unknown -> clear buffer + quit.
 
 Socket `EterLib/NetStream.{h,cpp}`: non-blocking TCP, cipher only when
-`m_cipher.activated()`. UNVERIFIED: keepalive, ping period, 0x00 after crypt.
+`m_cipher.activated()`. Keepalive VERIFIED: `ping_event` is created in the DESC
+constructor (`desc.cpp:227-233`) and fires in every phase (plaintext handshake
+included); the client answers each 1-byte `TPacketGCPing` (44) with a 1-byte
+`TPacketCGPong` (0xfe) via `RecvPingPacket` (`PythonNetworkStream.cpp:636-656`,
+called in all five phase loops), and the server closes the session on the next
+cycle without a pong (`desc.cpp:174-180`). Cycle default 60 s
+(`ping_event_second_cycle = passes_per_sec * 60`, `config.cpp:32`; TOKEN
+override `config.cpp:764-768`). UNVERIFIED: 0x00 after crypt.

@@ -86,6 +86,20 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   geçersiz func/koordinat/eleman-sayısı guard'ları.
 - `packet-catalog.json`: 7/3/8/5 VERIFIED (37 paket); `connection-flow.md` §6 hareket.
 - Test: 536 → 566 (+30).
+- Keepalive (ping/pong): `PacketGCPing` (44, 1B) + `PacketCGPong` (0xfe, 1B)
+  paket+codec'leri; `PacketRegistry` taban handshake registry'sine GC_PING
+  tüm-fazlar kaydı (ping event DESC kurucusunda başlar, desc.cpp:227-233).
+- `HandshakeClient`: sunucu keepalive ping'i her iki alım yolunda da (düz-metin
+  handshake + şifreli faz) otomatik CG_PONG ile yanıtlanır ve çağırıcıdan
+  gizlenir — C++ `RecvPingPacket` aynası (PythonNetworkStream.cpp:636-656,
+  beş faz döngüsünde de çağrılır). Pong gönderimi kanal durumuna uyar:
+  handshake bitmeden düz-metin, sonrasında şifreli.
+- Kaynak-kanıtı: sunucu pong yoksa sonraki çevrimde oturumu kapatır
+  (desc.cpp:174-180); çevrim varsayılanı 60 s (config.cpp:32).
+- `packet-catalog.json`: GC_PING ve CG_PONG VERIFIED'a yükseltildi (39 paket);
+  `connection-flow.md` §7 keepalive/ping-period UNVERIDDEN kapatıldı.
+- Test: 568 → 583 (+15: GCPing 6, CGPong 6, registry 1, loopback 2 —
+  handshake ortası düz-metin ping + şifreli faz ping).
 ### Düzeltilen (kod)
 - `PacketHeaders.HEADER_GC_PING`: 0xfe → **44**. Kök neden: 0xfe/`packet.h:115`
   aslında `HEADER_GC_BINDUDP` — önceki geliştirici satırı yanlış okumuş. Her iki

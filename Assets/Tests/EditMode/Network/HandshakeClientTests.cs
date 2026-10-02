@@ -194,6 +194,142 @@ namespace Metin2.Tests.EditMode.Network
         }
 
         [Test]
+        public async Task PingDuringPlaintextHandshake_AnsweredWithPlainPong_HandshakeStillCompletes()
+        {
+            using var cts = new CancellationTokenSource();
+            CancellationToken token = TestToken(cts);
+
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            try
+            {
+                int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                Task<TcpClient> acceptTask = listener.AcceptTcpClientAsync();
+
+                using var conn = new TcpConnection();
+                await conn.ConnectAsync("127.0.0.1", port, token).ConfigureAwait(false);
+                using TcpClient serverTcp = await acceptTask.ConfigureAwait(false);
+                NetworkStream serverStream = serverTcp.GetStream();
+
+                Task serverTask = Task.Run(async () =>
+                {
+                    using var serverAgreement = Dh2KeyAgreement.Generate();
+                    byte[] serverPub = serverAgreement.ExportPublicData();
+
+                    await WriteAllAsync(serverStream, PacketGCHandshakeCodec.Serialize(new PacketGCHandshake(1, 2, 3)), token).ConfigureAwait(false);
+
+                    // Keepalive mid-handshake: the ping event starts in the DESC
+                    // constructor (desc.cpp:227-233), so pings can arrive while
+                    // the channel is still plaintext (client mirror:
+                    // PhaseHandShake.cpp:63).
+                    await WriteAllAsync(serverStream, PacketGCPingCodec.Serialize(new PacketGCPing()), token).ConfigureAwait(false);
+
+                    // Client must answer with a plaintext 1-byte CG_PONG.
+                    byte[] pong = await ReadExactAsync(serverStream, PacketCGPong.PacketSize, token).ConfigureAwait(false);
+                    CollectionAssert.AreEqual(PacketCGPongCodec.Serialize(new PacketCGPong()), pong);
+
+                    var serverKa = new PacketKeyAgreement(
+                        DiffieHellmanGroup.AgreedValueLength, DiffieHellmanGroup.KeyDataLength, serverPub);
+                    await WriteAllAsync(serverStream, PacketKeyAgreementCodec.Serialize(serverKa), token).ConfigureAwait(false);
+
+                    byte[] cgReply = await ReadExactAsync(serverStream, PacketKeyAgreement.PacketSize, token).ConfigureAwait(false);
+                    Assert.IsTrue(serverAgreement.TryAgree(
+                        PacketKeyAgreementCodec.Deserialize(cgReply).DataLength,
+                        PacketKeyAgreementCodec.Deserialize(cgReply).Data,
+                        out byte[] _));
+
+                    await WriteAllAsync(serverStream, new byte[] { PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, 0, 0, 0 }, token).ConfigureAwait(false);
+                }, token);
+
+                using var client = new HandshakeClient(conn);
+                CipherSession session = await client.RunAsync(token).ConfigureAwait(false);
+
+                Assert.IsTrue(client.Completed);
+                Assert.IsTrue(session.Activated);
+                await serverTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        [Test]
+        public async Task SecurePing_AfterHandshake_AnsweredEncrypted_NextFrameReturned()
+        {
+            using var cts = new CancellationTokenSource();
+            CancellationToken token = TestToken(cts);
+
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            try
+            {
+                int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                Task<TcpClient> acceptTask = listener.AcceptTcpClientAsync();
+
+                using var conn = new TcpConnection();
+                await conn.ConnectAsync("127.0.0.1", port, token).ConfigureAwait(false);
+                using TcpClient serverTcp = await acceptTask.ConfigureAwait(false);
+                NetworkStream serverStream = serverTcp.GetStream();
+
+                Task serverTask = Task.Run(async () =>
+                {
+                    using var serverAgreement = Dh2KeyAgreement.Generate();
+                    byte[] serverPub = serverAgreement.ExportPublicData();
+
+                    await WriteAllAsync(serverStream, PacketGCHandshakeCodec.Serialize(new PacketGCHandshake(1, 2, 3)), token).ConfigureAwait(false);
+                    var serverKa = new PacketKeyAgreement(
+                        DiffieHellmanGroup.AgreedValueLength, DiffieHellmanGroup.KeyDataLength, serverPub);
+                    await WriteAllAsync(serverStream, PacketKeyAgreementCodec.Serialize(serverKa), token).ConfigureAwait(false);
+
+                    byte[] cgReply = await ReadExactAsync(serverStream, PacketKeyAgreement.PacketSize, token).ConfigureAwait(false);
+                    Assert.IsTrue(serverAgreement.TryAgree(
+                        PacketKeyAgreementCodec.Deserialize(cgReply).DataLength,
+                        PacketKeyAgreementCodec.Deserialize(cgReply).Data,
+                        out byte[] serverShared));
+                    Assert.IsTrue(CipherKeyDerivation.TryDerive(serverShared, out CipherKeyMaterial serverMaterial));
+                    Array.Clear(serverShared, 0, serverShared.Length);
+
+                    using var serverSession = new CipherSession(false, serverMaterial, BlockCipherEngineFactory.ForSession());
+                    await WriteAllAsync(serverStream, new byte[] { PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, 0, 0, 0 }, token).ConfigureAwait(false);
+                    serverSession.SetActivated(true);
+
+                    // Encrypted keepalive followed by an encrypted GC_PHASE in
+                    // the same TCP segment (coalesced).
+                    byte[] pingWire = PacketGCPingCodec.Serialize(new PacketGCPing());
+                    serverSession.Encrypt(pingWire, 0, pingWire.Length);
+                    await WriteAllAsync(serverStream, pingWire, token).ConfigureAwait(false);
+
+                    byte[] phasePlain = PacketGCPhaseCodec.Serialize(new PacketGCPhase(PhaseType.Game));
+                    byte[] phaseWire = (byte[])phasePlain.Clone();
+                    serverSession.Encrypt(phaseWire, 0, phaseWire.Length);
+                    await WriteAllAsync(serverStream, phaseWire, token).ConfigureAwait(false);
+
+                    // Client must answer with an encrypted 1-byte CG_PONG.
+                    byte[] pongWire = await ReadExactAsync(serverStream, PacketCGPong.PacketSize, token).ConfigureAwait(false);
+                    serverSession.Decrypt(pongWire, 0, pongWire.Length);
+                    CollectionAssert.AreEqual(PacketCGPongCodec.Serialize(new PacketCGPong()), pongWire);
+                }, token);
+
+                using var client = new HandshakeClient(conn);
+                CipherSession session = await client.RunAsync(token).ConfigureAwait(false);
+                Assert.IsTrue(client.Completed);
+
+                // The ping must be consumed transparently: the first frame the
+                // caller sees is the GC_PHASE that followed it.
+                byte[] securePhase = await client.ReceiveSecureFrameAsync(token).ConfigureAwait(false);
+                PacketGCPhase phase = PacketGCPhaseCodec.Deserialize(securePhase);
+                Assert.AreEqual(PhaseType.Game, phase.Phase);
+
+                await serverTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        [Test]
         public void Handshake_BadAgreedLength_FailsClosed()
         {
             using var cts = new CancellationTokenSource();

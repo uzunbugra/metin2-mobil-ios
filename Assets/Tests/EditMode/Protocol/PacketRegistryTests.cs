@@ -10,15 +10,16 @@ namespace Metin2.Tests.EditMode.Protocol
     public class PacketRegistryTests
     {
         [Test]
-        public void HandshakeRegistry_ContainsFourSourceVerifiedEntries()
+        public void HandshakeRegistry_ContainsFiveSourceVerifiedEntries()
         {
             var registry = PacketRegistry.CreateHandshakeRegistry();
 
-            Assert.AreEqual(4, registry.Count);
+            Assert.AreEqual(5, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_HANDSHAKE, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_KEY_AGREEMENT, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_PHASE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_PING, out _));
         }
 
         [Test]
@@ -55,6 +56,22 @@ namespace Metin2.Tests.EditMode.Protocol
                 Assert.IsTrue(
                     registry.IsAllowed(PacketHeaders.HEADER_GC_PHASE, phase),
                     $"HEADER_GC_PHASE must be allowed in phase {phase} (server pushes it on every SetPhase, desc.cpp:518).");
+            }
+        }
+
+        [Test]
+        public void PingPacket_AllowedInEveryPhase()
+        {
+            // The ping event is created in the DESC constructor (desc.cpp:227-233)
+            // and fires regardless of phase; the C++ client answers it in all
+            // five client phases (PhaseHandShake.cpp:63 ... PhaseGame.cpp:381).
+            var registry = PacketRegistry.CreateHandshakeRegistry();
+
+            foreach (PhaseType phase in Enum.GetValues(typeof(PhaseType)))
+            {
+                Assert.IsTrue(
+                    registry.IsAllowed(PacketHeaders.HEADER_GC_PING, phase),
+                    $"HEADER_GC_PING must be allowed in phase {phase}.");
             }
         }
 
@@ -112,7 +129,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateAuthRegistry();
 
-            Assert.AreEqual(6, registry.Count);
+            Assert.AreEqual(7, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_HANDSHAKE, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_AUTH_SUCCESS, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_LOGIN_FAILURE, out _));
@@ -146,7 +163,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateChannelRegistry();
 
-            Assert.AreEqual(8, registry.Count);
+            Assert.AreEqual(9, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_EMPIRE, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_LOGIN_SUCCESS_NEWSLOT, out _));
             // Auth entries survive.
@@ -181,7 +198,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateSelectRegistry();
 
-            Assert.AreEqual(12, registry.Count);
+            Assert.AreEqual(13, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_CREATE_SUCCESS, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_CREATE_FAILURE, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_DELETE_SUCCESS, out _));
@@ -213,7 +230,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateWorldEntryRegistry();
 
-            Assert.AreEqual(15, registry.Count);
+            Assert.AreEqual(16, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_TIME, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHANNEL, out _));
@@ -251,7 +268,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateGameRegistry();
 
-            Assert.AreEqual(24, registry.Count);
+            Assert.AreEqual(25, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_POINTS, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_SKILL_LEVEL, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_ADD, out _));
