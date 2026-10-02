@@ -1,4 +1,4 @@
-# Metin2 Mobile — Unity 6 LTS Client
+﻿# Metin2 Mobile — Unity 6 LTS Client
 
 Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# ile geliştirilen Android mobil istemcisi.
 
@@ -27,7 +27,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Envanter Aksiyonları (adım 5) | ✅ Tamamlandı | `InventoryClient` gönderim: use/move/drop/pickup/use-to-item (loopback kanıtlı) |
 | Sprint 6 — Önyüz Temeli (adım 1) | ✅ Tamamlandı | `GameFlow` + `DemoServer`: uçtan uca entegrasyon (GC_PHASE şeffaf tüketim dahil) |
 
-**Test: 685/685 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 685/685 ✅** (`dotnet test headless/Metin2.Tests.Headless.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -343,7 +343,19 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   item taşıma, faz ve state dizileri assert'li.
 - Test: 681 → **685/685** (+4).
 
-## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
+### Adım 29 — Unity'de İlk Görsel: Demo Dünyası (Sprint 6, adım 2)
+- `Metin2.Frontend` assembly'si (Unity bağlamı; Gameplay/Network/Protocol/Core referansları)
+  + `DemoWorldBehaviour`: Bootstrap scene'inde Play'e basınca DemoServer süreç içinde
+  başlar, gerçek `GameFlow` tam yolculuğu koşar (auth → channel → karakter → dünya) ve
+  sonuçlar görselleşir: spawn event'lerinden küpler/kapsül doğar, kapsül YALNIZ sunucu
+  GC_MOVE rebroadcast'i ile hareket eder (server-authoritative görsel), SPACE ile saldırı →
+  hasar/HP/ölüm paketleri HUD'a düşer.
+- Thread sözleşmesi: flow arka planda, tüm Unity çağrıları Update'te boşaltılan kuyrukla
+  ana thread'e (guide §5.2).
+- Headless csproj'lar `headless/` altına taşındı (Unity csproj çakışması çözüldü).
+- Test: 685/685 (headless grafiği Frontend'i içermez — o yalnız Unity'de derlenir).
+
+## Test Tablosu (Komut: `dotnet test headless/Metin2.Tests.Headless.csproj`)
 
 | Alan | Test | Kapsam |
 |---|---|---|
@@ -459,7 +471,7 @@ Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
 
 ```bash
 # .NET CLI ile
-dotnet test Metin2.Tests.csproj
+dotnet test headless/Metin2.Tests.Headless.csproj
 
 # Unity Editor ile
 # Window > General > Test Runner > EditMode > Run All
@@ -484,10 +496,9 @@ dotnet test Metin2.Tests.csproj
 ## Bilinen Eksikler (UNVERIFIED)
 
 - Canlı sunucuya karşı uçtan-uca handshake decode (offline loopback + kaynak-kanıt tamam; gerçek auth core final kanıtı)
-- Headless test altyapısını besleyen el yapımı `Metin2.*.csproj` + `Metin2Unity.sln` repoya
-  commit edilmiyor (`*.csproj`/`*.sln` gitignore'da — Unity kendi ürettikleriyle aynı isimde
-  çakışır). Taze clone testleri çalıştıramaz; Unity kurulumundan ÖNCE bu dosyaların
-  çakışmasız bir yapıya taşınması (örn. `headless/` klasörü + yeniden adlandırma) gerekir.
+- Headless test csproj'ları `headless/` altına taşındı (Unity'nin ürettiği csproj'larla isim
+  çakışması çözüldü; `*.csproj`/`*.sln` hâlâ gitignore'da — taze clone için bu dosyaların
+  repoya alınması ayrı bir karar)
 
 ## Sonraki Adım
 

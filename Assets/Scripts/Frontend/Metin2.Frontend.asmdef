@@ -1,0 +1,19 @@
+{
+    "name": "Metin2.Frontend",
+    "rootNamespace": "Metin2.Frontend",
+    "references": [
+        "Metin2.Core",
+        "Metin2.Protocol",
+        "Metin2.Network",
+        "Metin2.Gameplay"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
