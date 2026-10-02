@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Metin2.Gameplay.Demo;
 using Metin2.Gameplay.Flow;
+using Metin2.Network.Session;
 using Metin2.Protocol.Constants;
 using Metin2.Protocol.Packets;
 using UnityEngine;
