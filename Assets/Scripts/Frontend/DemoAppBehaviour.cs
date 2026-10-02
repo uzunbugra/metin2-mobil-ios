@@ -89,6 +89,7 @@ namespace Metin2.Frontend
                     "127.0.0.1", gamePort, _username.text).ConfigureAwait(true);
 
                 BuildCharacterSelectScreen(slots);
+                _busy = false;
             }
             catch (Exception ex)
             {
