@@ -63,5 +63,13 @@ namespace Metin2.Protocol.Constants
         public const byte HEADER_CG_SYNC_POSITION = 8;    // 0x08 (server packet.h:18; client Packet.h:19)
         public const byte HEADER_GC_MOVE = 3;              // 0x03 (server packet.h:120; client Packet.h:145 CHARACTER_MOVE)
         public const byte HEADER_GC_SYNC_POSITION = 5;    // 0x05 (server packet.h:122; client Packet.h:147)
+
+        // Combat
+        public const byte HEADER_CG_ATTACK = 2;            // 0x02 (server packet.h:12; client Packet.h:13)
+        public const byte HEADER_GC_POINT_CHANGE = 17;     // 0x11 (server packet.h:139 HEADER_GC_CHARACTER_POINT_CHANGE; client Packet.h:160 HEADER_GC_PLAYER_POINT_CHANGE — same value 17, names differ across sides)
+        public const byte HEADER_GC_STUN = 13;             // 0x0d (server packet.h:134; client Packet.h:155)
+        public const byte HEADER_GC_DEAD = 14;             // 0x0e (server packet.h:135; client Packet.h:156)
+        public const byte HEADER_GC_MOTION = 36;           // 0x24 (server packet.h:161)
+        public const byte HEADER_GC_DAMAGE_INFO = 135;     // 0x87 (server packet.h:258)
     }
 }

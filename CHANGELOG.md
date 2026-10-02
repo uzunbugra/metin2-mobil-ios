@@ -96,10 +96,33 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   handshake bitmeden düz-metin, sonrasında şifreli.
 - Kaynak-kanıtı: sunucu pong yoksa sonraki çevrimde oturumu kapatır
   (desc.cpp:174-180); çevrim varsayılanı 60 s (config.cpp:32).
-- `packet-catalog.json`: GC_PING ve CG_PONG VERIFIED'a yükseltildi (39 paket);
+- `packet-catalog.json`: GC_PING ve CG_PONG VERIFIED'a yükseltildi (katalog toplam
+  37 paket — ping/pong zaten kayıtlıydı, 30 VERIFIED kaldı; sayım düzeltildi);
   `connection-flow.md` §7 keepalive/ping-period UNVERIDDEN kapatıldı.
 - Test: 568 → 583 (+15: GCPing 6, CGPong 6, registry 1, loopback 2 —
   handshake ortası düz-metin ping + şifreli faz ping).
+- Temel combat (Sprint 5 devamı): 6 paket + `CombatClient`
+  (`Metin2.Network.Session`) — saldırı niyeti gönderimi + combat event akışı.
+- `PacketCGAttack` (2, 8B) + codec: normal saldırı (type 0) / skill (type>0),
+  magic-cube CRC alanları dahil; sunucu her şeyi yeniden doğrular
+  (input_main.cpp:1690-1770 + IS_SPEED_HACK).
+- `PacketGCPointChange` (17, 17B) + codec — **int-header quirk**: header wire'da
+  4 bayt int'tir (11 00 00 00 ile başlar), tek paket böyle; framer atomik
+  17B tükettiği için iç sıfırlar padding'e karışmaz. Faz: Select+Loading+Game
+  (istemci üç fazda da işler). `PointTypes` sabitleri (char.h EPointTypes
+  0..34: HP=5, SP=7, GOLD=11 ...).
+- `PacketGCStun` (13, 5B) + `PacketGCDead` (14, 5B) + codec'ler — PacketAround
+  yayın (char_battle.cpp:429-432 / 1468-1471).
+- `PacketGCMotion` (36, 11B) + codec — gözlemcilerin saldırı animasyonu;
+  HEADER_GC_ATTACK (12) bu build'de ölü sabit (gönderen yok), belgelendi.
+- `PacketGCDamageInfo` (135, 10B) + codec — hasar sayısı yalnız kurban+saldıran
+  descriptor'ına (char_battle.cpp:1584-1605).
+- `CombatClient`: `SendAttackAsync` (fail-closed vid guard) + `ReceiveEventAsync`
+  (PointChanged/Stunned/Dead/Motion/DamageInfo; stun Loading fazında reddi gibi
+  faz guard'ları registry'den).
+- `packet-catalog.json`: +6 paket → toplam 43 (36 VERIFIED, 7 PARTIALLY).
+- Test: 583 → 636 (+53: CGAttack 5, PointChange 7, Stun 5, Dead 5, Motion 5,
+  DamageInfo 5, framer 2, registry 3, Combat 5, PointTypes 1).
 ### Düzeltilen (kod)
 - `PacketHeaders.HEADER_GC_PING`: 0xfe → **44**. Kök neden: 0xfe/`packet.h:115`
   aslında `HEADER_GC_BINDUDP` — önceki geliştirici satırı yanlış okumuş. Her iki

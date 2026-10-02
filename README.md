@@ -23,8 +23,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Loading Stats + Spawn (adım 1) | ✅ Tamamlandı | `GameWorldClient`: points/skills + add/del eventleri (loopback kanıtlı) |
 | Sprint 5 — Item Sistemi (adım 2) | ✅ Tamamlandı | `InventoryClient`: set/clear/update eventleri (loopback kanıtlı) |
 | Sprint 5 — Hareket (adım 3) | ✅ Tamamlandı | `MovementClient`: move/sync gönderim+alım, dinamik framer (loopback kanıtlı) |
+| Sprint 5 — Temel Combat (adım 4) | ✅ Tamamlandı | `CombatClient`: saldırı + point/stun/dead/motion/damage akışı (loopback kanıtlı) |
 
-**Test: 583/583 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 636/636 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -35,7 +36,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
   - `docs/architecture.md` — Workspace haritası, process topolojisi, build toolchain'leri
   - `docs/protocol/connection-flow.md` — Handshake → Key Agreement → Auth → Login → Select → Game
   - `docs/protocol/protocol-inventory.md` — 60+ CG, 80+ GC header, GD/DG/GG header'ları, framing kuralları
-  - `docs/protocol/packet-catalog.json` — 39 bağlantı paketi, makine-okunur katalog
+  - `docs/protocol/packet-catalog.json` — 43 bağlantı paketi (36 VERIFIED + 7 PARTIALLY), makine-okunur katalog
 - [`docs/sprints/SPRINT_05-game-world.md`](docs/sprints/SPRINT_05-game-world.md) — Loading stats + spawn kaydı
 - Commit: `dac18f6`
 
@@ -300,6 +301,18 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   session client'ları bu davranışı ücretsiz devralır.
 - Test: 568 → **583/583** (+15: codec 12, registry 1, loopback 2).
 
+### Adım 26 — Temel Combat (Sprint 5 devamı)
+- Kaynak iz sürme: `CInputMain::Attack` (input_main.cpp:1690-1770) → `CHARACTER::Attack`
+  (char_battle.cpp:179-286) — sunucu menzil/hız/hedef doğrular; hasar sayısı yalnız
+  kurban+saldıran'a (`SendDamagePacket`, char_battle.cpp:1584-1605), HP deltası
+  `PointChange` (char.cpp:3595-3613), ölüm/bayılma `PacketAround` yayın.
+- 6 paket+codec: CG_ATTACK (2, 8B), GC_POINT_CHANGE (17, 17B — **int-header quirk**:
+  wire'da header 4 bayt!), GC_STUN (13, 5B), GC_DEAD (14, 5B), GC_MOTION (36, 11B),
+  GC_DAMAGE_INFO (135, 10B) + `PointTypes` sabitleri (EPointTypes 0..34).
+- `CombatClient`: saldırı niyeti gönderimi + 5 tip combat event akışı (faz-aware);
+  HEADER_GC_ATTACK (12) bu build'de ölü sabit — belgelendi, implemente edilmedi.
+- Test: 583 → **636/636** (+53).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -355,6 +368,8 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | Movement (6) | `MovementClientTests` | Loopback niyet+yayın, sync turu, quantize, guard'lar |
 | Keepalive-Codecs (12) | `PacketGCPingTests`, `PacketCGPongTests` | 1B golden byte, round-trip, truncation, header (0xfe ≠ GC_PING regression) |
 | Keepalive (2) | `HandshakeClientTests` | Loopback: handshake ortası düz-metin ping→pong, şifreli faz ping→pong + sonraki frame |
+| Combat-Codecs (32) | `PacketCGAttackTests`, `PacketGCPointChangeTests`, `PacketGCStunTests`, `PacketGCDeadTests`, `PacketGCMotionTests`, `PacketGCDamageInfoTests` | Golden layout (int-header quirk dahil), round-trip, truncation, header |
+| Combat (5) | `CombatClientTests` | Loopback saldırı turu + 5 event tipi, faz guard'ları (stun Loading'de reddi), vid guard |
 
 ## Mimari
 
@@ -381,8 +396,8 @@ Assets/Scripts/
 │   └── Logging/    — ILogger, SecretRedactor, UnityLogger
 ├── Protocol/       (Metin2.Protocol.asmdef — noEngineReferences: true)
 │   ├── Buffer/     — PacketReader, PacketWriter (LE binary I/O + float)
-│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCPingCodec, PacketCGPongCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec, ItemFieldCodec, PacketGCItem{Set,Del,Update}Codec, PacketCGMoveCodec, PacketGCMoveCodec, SyncPositionElementCodec, PacketCGSyncPositionCodec, PacketGCSyncPositionCodec
-│   ├── Constants/  — PacketHeaders, PhaseType
+│   ├── Codecs/     — PacketGCHandshakeCodec, PacketKeyAgreementCodec, PacketCGLogin3Codec, PacketCGLogin2Codec, PacketGCPhaseCodec, PacketGCPingCodec, PacketCGPongCodec, PacketGCAuthSuccessCodec, PacketGCLoginFailureCodec, PacketGCEmpireCodec, SimplePlayerCodec, PacketGCLoginSuccessCodec, PacketCGCharacter{Select,Create,Delete}Codec, PacketCGEnterGameCodec, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}Codec, PacketGCMainCharacterCodec, PacketGCTimeCodec, PacketGCChannelCodec, PacketGC{Points,SkillLevel}Codec, PlayerSkillCodec, PacketGCCharacter{Add,Delete}Codec, ItemFieldCodec, PacketGCItem{Set,Del,Update}Codec, PacketCGMoveCodec, PacketGCMoveCodec, SyncPositionElementCodec, PacketCGSyncPositionCodec, PacketGCSyncPositionCodec, PacketCGAttackCodec, PacketGCPointChangeCodec, PacketGCStunCodec, PacketGCDeadCodec, PacketGCMotionCodec, PacketGCDamageInfoCodec
+│   ├── Constants/  — PacketHeaders, PhaseType, PointTypes
 │   ├── Exceptions/ — PacketException, PacketUnderflowException, InvalidPacketHeaderException,
 │   │                  CipherEngineNotImplementedException, HandshakeFailedException
 │   ├── Framing/    — PacketLengthTable, PacketFramer (TCP stream → frame)
@@ -390,9 +405,9 @@ Assets/Scripts/
 │   ├── Security/   — DiffieHellmanGroup, Dh2KeyAgreement, CipherSuite, CipherKeyDerivation,
 │   │                  CipherSession, CtrStream
 │   │   └── Engines/— TeaEngine, Rc6Engine, IdeaEngine, Rc5Engine, Shacal2Engine, BlowfishEngine, TripleDesEngine, TwofishEngine, SerpentEngine, MarsEngine, Cast256Engine, CamelliaEngine, SeedEngine, BlockCipherEngineFactory (13/13 KAT'li ✅)
-│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCPing, PacketCGPong, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, ItemAttribute, PacketGCItem{Set,Del,Update}, MoveFunc, PacketCGMove, PacketGCMove, SyncPositionElement, PacketCGSyncPosition, PacketGCSyncPosition, IPacket
+│   └── Packets/    — PacketGCHandshake, PacketKeyAgreement, PacketCGLogin3, PacketCGLogin2, PacketGCPhase, PacketGCPing, PacketCGPong, PacketGCAuthSuccess, PacketGCLoginFailure, PacketGCEmpire, SimplePlayer, PacketGCLoginSuccess, PacketCGCharacter{Select,Create,Delete}, PacketCGEnterGame, PacketGC{CreateSuccess,CreateFailure,DeleteSuccess,DeleteFailure}, PacketGCMainCharacter, PacketGCTime, PacketGCChannel, PacketGC{Points,SkillLevel}, PlayerSkill, PacketGCCharacter{Add,Delete}, ItemAttribute, PacketGCItem{Set,Del,Update}, MoveFunc, PacketCGMove, PacketGCMove, SyncPositionElement, PacketCGSyncPosition, PacketGCSyncPosition, PacketCGAttack, PacketGCPointChange, PacketGCStun, PacketGCDead, PacketGCMotion, PacketGCDamageInfo, IPacket
 ├── Network/        (Metin2.Network.asmdef)
-│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa + keepalive ping→pong), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25), MovementClient (7/8→3/5)
+│   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa + keepalive ping→pong), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25), MovementClient (7/8→3/5), CombatClient (2→17/13/14/36/135)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
@@ -414,7 +429,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 583/583 başarılı ✅**
+**Son test sonucu: 636/636 başarılı ✅**
 
 ## Dokümanlar
 
@@ -428,7 +443,7 @@ dotnet test Metin2.Tests.csproj
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
-- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 39 VERIFIED paket (ping/pong eklendi)
+- [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 43 paket: 36 VERIFIED + 7 PARTIALLY (combat +6)
 
 ## Bilinen Eksikler (UNVERIFIED)
 

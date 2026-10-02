@@ -392,6 +392,71 @@ namespace Metin2.Tests.EditMode.Protocol
         }
 
         [Test]
+        public void CombatPackets_FrameAtSourceVerifiedLengths()
+        {
+            // 17 = 17B (packet.h:1042-1049), 13/14 = 5B (packet.h:1051-1061),
+            // 36 = 11B (packet.h:1158-1164), 135 = 10B (packet.h:2093-2099).
+            var framer = new PacketFramer();
+            byte[] pointChange = PacketGCPointChangeCodec.Serialize(
+                new PacketGCPointChange(1, 5, -100, 900));
+            byte[] stun = PacketGCStunCodec.Serialize(new PacketGCStun(2));
+            byte[] dead = PacketGCDeadCodec.Serialize(new PacketGCDead(3));
+            byte[] motion = PacketGCMotionCodec.Serialize(new PacketGCMotion(4, 5, 6));
+            byte[] damage = PacketGCDamageInfoCodec.Serialize(new PacketGCDamageInfo(6, 1, 77));
+
+            Assert.AreEqual(17, pointChange.Length);
+            Assert.AreEqual(5, stun.Length);
+            Assert.AreEqual(5, dead.Length);
+            Assert.AreEqual(11, motion.Length);
+            Assert.AreEqual(10, damage.Length);
+
+            framer.Append(pointChange);
+            framer.Append(stun);
+            framer.Append(dead);
+            framer.Append(motion);
+            framer.Append(damage);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(pointChange, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(stun, f2);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f3));
+            CollectionAssert.AreEqual(dead, f3);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f4));
+            CollectionAssert.AreEqual(motion, f4);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f5));
+            CollectionAssert.AreEqual(damage, f5);
+            Assert.AreEqual(0, framer.BufferedBytes);
+            Assert.AreEqual(0, framer.DroppedBytes);
+        }
+
+        [Test]
+        public void PointChange_InteriorZeroBytes_NeverTreatedAsPadding()
+        {
+            // The int-header quirk puts three 0x00 bytes at offsets 1..3 of the
+            // frame; they are INSIDE the 17-byte frame and must be consumed
+            // atomically — the padding skipper must not eat them between two
+            // coalesced point-change frames.
+            var framer = new PacketFramer();
+            byte[] first = PacketGCPointChangeCodec.Serialize(
+                new PacketGCPointChange(1, 5, -1, 99));
+            byte[] second = PacketGCPointChangeCodec.Serialize(
+                new PacketGCPointChange(2, 7, -2, 88));
+
+            byte[] coalesced = new byte[first.Length + second.Length];
+            first.CopyTo(coalesced, 0);
+            second.CopyTo(coalesced, first.Length);
+            framer.Append(coalesced);
+
+            Assert.IsTrue(framer.TryDequeue(out byte[] f1));
+            CollectionAssert.AreEqual(first, f1);
+            Assert.IsTrue(framer.TryDequeue(out byte[] f2));
+            CollectionAssert.AreEqual(second, f2);
+            Assert.AreEqual(0, framer.BufferedBytes);
+            Assert.AreEqual(0, framer.DroppedBytes);
+        }
+
+        [Test]
         public void SyncFrame_FragmentedWaits_CoalescedSplits()
         {
             // Dynamic wSize framing (packet.h:1317-1322): 2 elements = 27B.

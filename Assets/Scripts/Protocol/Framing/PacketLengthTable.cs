@@ -174,6 +174,48 @@ namespace Metin2.Protocol.Framing
                 return true;
             }
 
+            if (header == PacketHeaders.HEADER_GC_POINT_CHANGE)
+            {
+                // sizeof(TPacketGCPointChange) = 4+4+1+4+4 = 17, server packet.h:1042-1049
+                // (client mirror UserInterface/Packet.h:1606-1615). int-header quirk:
+                // the wire frame starts with the header as a 4-byte int, so bytes 1..3
+                // are 0x00 — they are INSIDE the frame and consumed atomically, never
+                // treated as padding by the framer.
+                length = 17;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_STUN)
+            {
+                // sizeof(TPacketGCStun) = 1+4 = 5, server packet.h:1051-1055
+                // (client mirror UserInterface/Packet.h:1363-1367).
+                length = 5;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_DEAD)
+            {
+                // sizeof(TPacketGCDead) = 1+4 = 5, server packet.h:1057-1061
+                // (client mirror UserInterface/Packet.h:1369-1373).
+                length = 5;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_MOTION)
+            {
+                // sizeof(TPacketGCMotion) = 1+4+4+2 = 11, server packet.h:1158-1164
+                // (client mirror UserInterface/Packet.h:1617-1623).
+                length = 11;
+                return true;
+            }
+
+            if (header == PacketHeaders.HEADER_GC_DAMAGE_INFO)
+            {
+                // sizeof(TPacketGCDamageInfo) = 1+4+1+4 = 10, server packet.h:2093-2099.
+                length = 10;
+                return true;
+            }
+
             if (header == PacketHeaders.HEADER_GC_CHARACTER_POINTS)
             {
                 // sizeof(TPacketGCPoints) = 1+4*255 = 1021,

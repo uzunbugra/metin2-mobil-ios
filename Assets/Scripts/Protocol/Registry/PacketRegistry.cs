@@ -390,6 +390,46 @@ namespace Metin2.Protocol.Registry
                 PacketLengthTable.MaxSyncPacketSize,
                 allowedPhases: new[] { PhaseType.Game }));
 
+            // Combat events: point deltas (GC_POINT_CHANGE, 17, 17B) are handled
+            // by the C++ client in Select, Loading AND Game phases
+            // (PhaseSelect.cpp:129, PhaseLoading.cpp:129, PhaseGame.cpp:311);
+            // stun/dead/motion/damage-info are Game-only dispatches
+            // (PhaseGame.cpp:303/307/356/396).
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_POINT_CHANGE,
+                "HEADER_GC_POINT_CHANGE",
+                PacketDirection.ServerToClient,
+                17,
+                allowedPhases: new[] { PhaseType.Select, PhaseType.Loading, PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_STUN,
+                "HEADER_GC_STUN",
+                PacketDirection.ServerToClient,
+                5,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_DEAD,
+                "HEADER_GC_DEAD",
+                PacketDirection.ServerToClient,
+                5,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_MOTION,
+                "HEADER_GC_MOTION",
+                PacketDirection.ServerToClient,
+                11,
+                allowedPhases: new[] { PhaseType.Game }));
+
+            registry.Register(new PacketDescriptor(
+                PacketHeaders.HEADER_GC_DAMAGE_INFO,
+                "HEADER_GC_DAMAGE_INFO",
+                PacketDirection.ServerToClient,
+                10,
+                allowedPhases: new[] { PhaseType.Game }));
+
             return registry;
         }
     }

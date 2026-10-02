@@ -211,6 +211,45 @@ distance rules (repeated violation → CLOSE); rebroadcasts GC batch
 C# mirror: `MovementClient` (quantized rotation, fail-closed func/coords/
 count) + dynamic wSize framing in `PacketFramer` (same guards as server).
 
+## 6b. Combat (Game phase, server-authoritative)
+
+Client intent: `HEADER_CG_ATTACK=2` (`packet.h:12`; client `Packet.h:13`),
+`{bType, dwVID victim, bCRC×2}` 8B (`packet.h:564-571` == client
+`Packet.h:535-542`). Server `CInputMain::Attack` (`input_main.cpp:1690-1770`):
+victim must exist, not self/NPC/WARP/GOTO; bType>0 → skill hit-count guard;
+CRC bytes feed the magic-cube anti-cheat accumulator. Then `CHARACTER::Attack`
+(`char_battle.cpp:179-286`): CanMove, IS_SPEED_HACK rate check (PC + bType 0
+combo-window), victim becomes sync-owner, fight starts; bType 0 → melee/range/
+magic per battle type, bType>0 → ComputeSkill.
+
+Outcomes (all server-decided, client renders only):
+- Damage number: `HEADER_GC_DAMAGE_INFO=135` 10B (`packet.h:2093-2099`) to the
+  VICTIM and ATTACKER descriptors only — `SendDamagePacket`
+  (`char_battle.cpp:1584-1605`); HP itself never rides here.
+- Point deltas: `HEADER_GC_POINT_CHANGE=17` 17B (`packet.h:1042-1049`)
+  `{int header(4B!), dwVID, type EPointTypes (char.h:97-135: HP=5, SP=7),
+  amount delta, value absolute}` — `CHARACTER::PointChange`
+  (`char.cpp:3595-3613`), own descriptor by default / PacketAround when
+  bBroadcast. INT-HEADER QUIRK: the only packet whose header is a 4-byte int
+  on the wire (frame starts `11 00 00 00`); 1-byte framing still works — low
+  byte lookup + atomic 17B consume. Name mismatch across sides (server
+  HEADER_GC_CHARACTER_POINT_CHANGE vs client HEADER_GC_PLAYER_POINT_CHANGE,
+  both 17). Valid in Select/Loading/Game (PhaseSelect.cpp:129,
+  PhaseLoading.cpp:129, PhaseGame.cpp:311).
+- Stun: `HEADER_GC_STUN=13` 5B (`packet.h:1051-1055`), PacketAround
+  (`char_battle.cpp:429-432`); clears HP/SP recovery first.
+- Death: `HEADER_GC_DEAD=14` 5B (`packet.h:1057-1061`), PacketAround
+  (`char_battle.cpp:1468-1471`); mount death reuses it (char_horse.cpp:225).
+- Attack animation for observers: `HEADER_GC_MOTION=36` 11B
+  (`packet.h:1158-1164`) `{vid, victim_vid(0=none), motion key}`, PacketAround
+  (`char.cpp:3773-3778`). NOTE: `HEADER_GC_ATTACK=12` (`packet.h:133`) is a
+  DEAD constant in this build — no sender exists on either side; do not
+  implement.
+
+C# mirror: `CombatClient` (attack intent + 5 event kinds, phase-aware via
+registry; point-change accepted in Select/Loading/Game, the rest Game-only)
++ `PointTypes` constants (EPointTypes 0..34).
+
 ## 7. Framing
 
 Server RX `CInputProcessor::Process` (`input.cpp:59-130`): 1-byte header,

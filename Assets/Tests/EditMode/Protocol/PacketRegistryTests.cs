@@ -268,7 +268,7 @@ namespace Metin2.Tests.EditMode.Protocol
         {
             var registry = PacketRegistry.CreateGameRegistry();
 
-            Assert.AreEqual(25, registry.Count);
+            Assert.AreEqual(30, registry.Count);
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_POINTS, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_SKILL_LEVEL, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_CHARACTER_ADD, out _));
@@ -276,8 +276,44 @@ namespace Metin2.Tests.EditMode.Protocol
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_ITEM_SET, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_ITEM_DEL, out _));
             Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_ITEM_UPDATE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_POINT_CHANGE, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_STUN, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_DEAD, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_MOTION, out _));
+            Assert.IsTrue(registry.TryGet(PacketHeaders.HEADER_GC_DAMAGE_INFO, out _));
             // World-entry entries survive.
             Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_MAIN_CHARACTER2_EMPIRE, PhaseType.Loading));
+        }
+
+        [Test]
+        public void PointChange_AllowedInSelectLoadingGame()
+        {
+            // Client dispatch: PhaseSelect.cpp:129, PhaseLoading.cpp:129,
+            // PhaseGame.cpp:311.
+            var registry = PacketRegistry.CreateGameRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_POINT_CHANGE, PhaseType.Select));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_POINT_CHANGE, PhaseType.Loading));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_POINT_CHANGE, PhaseType.Game));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_POINT_CHANGE, PhaseType.Handshake));
+        }
+
+        [Test]
+        public void CombatEvents_AllowedOnlyInGamePhase()
+        {
+            // Client dispatch: PhaseGame.cpp:303 (stun), 307 (dead),
+            // 356 (motion), 396 (damage-info).
+            var registry = PacketRegistry.CreateGameRegistry();
+
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_STUN, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_DEAD, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_MOTION, PhaseType.Game));
+            Assert.IsTrue(registry.IsAllowed(PacketHeaders.HEADER_GC_DAMAGE_INFO, PhaseType.Game));
+
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_STUN, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_DEAD, PhaseType.Select));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_MOTION, PhaseType.Loading));
+            Assert.IsFalse(registry.IsAllowed(PacketHeaders.HEADER_GC_DAMAGE_INFO, PhaseType.Select));
         }
 
         [Test]
