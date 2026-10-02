@@ -95,16 +95,23 @@ namespace Metin2.Tests.EditMode.Network
                     await WriteAllAsync(serverStream, new byte[] { PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, 0, 0, 0 }, token).ConfigureAwait(false);
                     serverSession.SetActivated(true);
 
-                    // Server -> client: encrypted GC_PHASE (Game).
+                    // Server -> client: encrypted GC_PHASE (Game) — consumed
+                    // transparently by the client (PhaseChanged event).
                     byte[] phasePlain = PacketGCPhaseCodec.Serialize(new PacketGCPhase(PhaseType.Game));
                     byte[] phaseWire = (byte[])phasePlain.Clone();
                     serverSession.Encrypt(phaseWire, 0, phaseWire.Length);
                     await WriteAllAsync(serverStream, phaseWire, token).ConfigureAwait(false);
 
-                    // Client -> server echo: read 2 encrypted bytes, decrypt, must match.
-                    byte[] echoWire = await ReadExactAsync(serverStream, phasePlain.Length, token).ConfigureAwait(false);
-                    serverSession.Decrypt(echoWire, 0, echoWire.Length);
-                    CollectionAssert.AreEqual(phasePlain, echoWire);
+                    // Followed by a regular frame for the echo round-trip.
+                    byte[] echoPlain = PacketGCTimeCodec.Serialize(new PacketGCTime(424242));
+                    byte[] echoWire = (byte[])echoPlain.Clone();
+                    serverSession.Encrypt(echoWire, 0, echoWire.Length);
+                    await WriteAllAsync(serverStream, echoWire, token).ConfigureAwait(false);
+
+                    // Client -> server echo: read the same plaintext back.
+                    byte[] receivedWire = await ReadExactAsync(serverStream, echoPlain.Length, token).ConfigureAwait(false);
+                    serverSession.Decrypt(receivedWire, 0, receivedWire.Length);
+                    CollectionAssert.AreEqual(echoPlain, receivedWire);
                 }, token);
 
                 using var client = new HandshakeClient(conn);
@@ -118,12 +125,19 @@ namespace Metin2.Tests.EditMode.Network
                 Assert.AreEqual(987654u, client.ServerHandshake.Time);
                 Assert.AreEqual(42, client.ServerHandshake.Delta);
 
-                byte[] securePhase = await client.ReceiveSecureFrameAsync(token).ConfigureAwait(false);
-                PacketGCPhase phase = PacketGCPhaseCodec.Deserialize(securePhase);
-                Assert.AreEqual(PhaseType.Game, phase.Phase);
+                var observedPhases = new System.Collections.Generic.List<PhaseType>();
+                client.PhaseChanged += observedPhases.Add;
+
+                // The phase push is consumed transparently; the first frame the
+                // caller receives is the GC_TIME that followed it.
+                byte[] secureTime = await client.ReceiveSecureFrameAsync(token).ConfigureAwait(false);
+                PacketGCTime time = PacketGCTimeCodec.Deserialize(secureTime);
+                Assert.AreEqual(424242u, time.Time);
+                Assert.AreEqual(1, observedPhases.Count);
+                Assert.AreEqual(PhaseType.Game, observedPhases[0]);
 
                 // Echo the same plaintext back through the secure channel.
-                await client.SendSecureAsync(securePhase, token).ConfigureAwait(false);
+                await client.SendSecureAsync(secureTime, token).ConfigureAwait(false);
 
                 await serverTask.ConfigureAwait(false);
             }
@@ -294,16 +308,20 @@ namespace Metin2.Tests.EditMode.Network
                     await WriteAllAsync(serverStream, new byte[] { PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, 0, 0, 0 }, token).ConfigureAwait(false);
                     serverSession.SetActivated(true);
 
-                    // Encrypted keepalive followed by an encrypted GC_PHASE in
-                    // the same TCP segment (coalesced).
+                    // Encrypted keepalive followed by an encrypted phase push and
+                    // a regular frame, all in the same TCP segment (coalesced).
                     byte[] pingWire = PacketGCPingCodec.Serialize(new PacketGCPing());
                     serverSession.Encrypt(pingWire, 0, pingWire.Length);
                     await WriteAllAsync(serverStream, pingWire, token).ConfigureAwait(false);
 
-                    byte[] phasePlain = PacketGCPhaseCodec.Serialize(new PacketGCPhase(PhaseType.Game));
-                    byte[] phaseWire = (byte[])phasePlain.Clone();
+                    byte[] phaseWire = PacketGCPhaseCodec.Serialize(new PacketGCPhase(PhaseType.Game));
                     serverSession.Encrypt(phaseWire, 0, phaseWire.Length);
                     await WriteAllAsync(serverStream, phaseWire, token).ConfigureAwait(false);
+
+                    byte[] timePlain = PacketGCTimeCodec.Serialize(new PacketGCTime(777));
+                    byte[] timeWire = (byte[])timePlain.Clone();
+                    serverSession.Encrypt(timeWire, 0, timeWire.Length);
+                    await WriteAllAsync(serverStream, timeWire, token).ConfigureAwait(false);
 
                     // Client must answer with an encrypted 1-byte CG_PONG.
                     byte[] pongWire = await ReadExactAsync(serverStream, PacketCGPong.PacketSize, token).ConfigureAwait(false);
@@ -315,11 +333,95 @@ namespace Metin2.Tests.EditMode.Network
                 CipherSession session = await client.RunAsync(token).ConfigureAwait(false);
                 Assert.IsTrue(client.Completed);
 
-                // The ping must be consumed transparently: the first frame the
-                // caller sees is the GC_PHASE that followed it.
-                byte[] securePhase = await client.ReceiveSecureFrameAsync(token).ConfigureAwait(false);
-                PacketGCPhase phase = PacketGCPhaseCodec.Deserialize(securePhase);
-                Assert.AreEqual(PhaseType.Game, phase.Phase);
+                var observedPhases = new System.Collections.Generic.List<PhaseType>();
+                client.PhaseChanged += observedPhases.Add;
+
+                // The ping and the phase push must be consumed transparently:
+                // the first frame the caller sees is the GC_TIME that followed.
+                byte[] secureTime = await client.ReceiveSecureFrameAsync(token).ConfigureAwait(false);
+                PacketGCTime time = PacketGCTimeCodec.Deserialize(secureTime);
+                Assert.AreEqual(777u, time.Time);
+                Assert.AreEqual(1, observedPhases.Count);
+                Assert.AreEqual(PhaseType.Game, observedPhases[0]);
+
+                await serverTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        [Test]
+        public async Task SecurePhasePush_ConsumedTransparently_EventRaisedInOrder()
+        {
+            using var cts = new CancellationTokenSource();
+            CancellationToken token = TestToken(cts);
+
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            try
+            {
+                int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                Task<TcpClient> acceptTask = listener.AcceptTcpClientAsync();
+
+                using var conn = new TcpConnection();
+                await conn.ConnectAsync("127.0.0.1", port, token).ConfigureAwait(false);
+                using TcpClient serverTcp = await acceptTask.ConfigureAwait(false);
+                NetworkStream serverStream = serverTcp.GetStream();
+
+                Task serverTask = Task.Run(async () =>
+                {
+                    using var serverAgreement = Dh2KeyAgreement.Generate();
+                    byte[] serverPub = serverAgreement.ExportPublicData();
+
+                    await WriteAllAsync(serverStream, PacketGCHandshakeCodec.Serialize(new PacketGCHandshake(1, 2, 3)), token).ConfigureAwait(false);
+                    var serverKa = new PacketKeyAgreement(
+                        DiffieHellmanGroup.AgreedValueLength, DiffieHellmanGroup.KeyDataLength, serverPub);
+                    await WriteAllAsync(serverStream, PacketKeyAgreementCodec.Serialize(serverKa), token).ConfigureAwait(false);
+
+                    byte[] cgReply = await ReadExactAsync(serverStream, PacketKeyAgreement.PacketSize, token).ConfigureAwait(false);
+                    Assert.IsTrue(serverAgreement.TryAgree(
+                        PacketKeyAgreementCodec.Deserialize(cgReply).DataLength,
+                        PacketKeyAgreementCodec.Deserialize(cgReply).Data,
+                        out byte[] serverShared));
+                    Assert.IsTrue(CipherKeyDerivation.TryDerive(serverShared, out CipherKeyMaterial serverMaterial));
+                    Array.Clear(serverShared, 0, serverShared.Length);
+
+                    using var serverSession = new CipherSession(false, serverMaterial, BlockCipherEngineFactory.ForSession());
+                    await WriteAllAsync(serverStream, new byte[] { PacketHeaders.HEADER_GC_KEY_AGREEMENT_COMPLETED, 0, 0, 0 }, token).ConfigureAwait(false);
+                    serverSession.SetActivated(true);
+
+                    // Faithful interleave: phase pushes between step replies
+                    // (real server: [90][GC_PHASE(SELECT)][32], desc.cpp:518).
+                    byte[] phaseLogin = PacketGCPhaseCodec.Serialize(new PacketGCPhase(PhaseType.Login));
+                    serverSession.Encrypt(phaseLogin, 0, phaseLogin.Length);
+                    await WriteAllAsync(serverStream, phaseLogin, token).ConfigureAwait(false);
+
+                    byte[] phaseGame = PacketGCPhaseCodec.Serialize(new PacketGCPhase(PhaseType.Game));
+                    serverSession.Encrypt(phaseGame, 0, phaseGame.Length);
+                    await WriteAllAsync(serverStream, phaseGame, token).ConfigureAwait(false);
+
+                    byte[] timePlain = PacketGCTimeCodec.Serialize(new PacketGCTime(12345));
+                    serverSession.Encrypt(timePlain, 0, timePlain.Length);
+                    await WriteAllAsync(serverStream, timePlain, token).ConfigureAwait(false);
+                }, token);
+
+                using var client = new HandshakeClient(conn);
+                var observedPhases = new System.Collections.Generic.List<PhaseType>();
+                client.PhaseChanged += observedPhases.Add;
+                await client.RunAsync(token).ConfigureAwait(false);
+                Assert.IsTrue(client.Completed);
+
+                // Both phase pushes are consumed transparently and reported
+                // in order; the first frame the caller sees is the GC_TIME.
+                byte[] timeFrame = await client.ReceiveSecureFrameAsync(token).ConfigureAwait(false);
+                PacketGCTime time = PacketGCTimeCodec.Deserialize(timeFrame);
+                Assert.AreEqual(12345u, time.Time);
+
+                Assert.AreEqual(2, observedPhases.Count);
+                Assert.AreEqual(PhaseType.Login, observedPhases[0]);
+                Assert.AreEqual(PhaseType.Game, observedPhases[1]);
 
                 await serverTask.ConfigureAwait(false);
             }

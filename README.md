@@ -25,8 +25,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Hareket (adım 3) | ✅ Tamamlandı | `MovementClient`: move/sync gönderim+alım, dinamik framer (loopback kanıtlı) |
 | Sprint 5 — Temel Combat (adım 4) | ✅ Tamamlandı | `CombatClient`: saldırı + point/stun/dead/motion/damage akışı (loopback kanıtlı) |
 | Sprint 5 — Envanter Aksiyonları (adım 5) | ✅ Tamamlandı | `InventoryClient` gönderim: use/move/drop/pickup/use-to-item (loopback kanıtlı) |
+| Sprint 6 — Önyüz Temeli (adım 1) | ✅ Tamamlandı | `GameFlow` + `DemoServer`: uçtan uca entegrasyon (GC_PHASE şeffaf tüketim dahil) |
 
-**Test: 681/681 ✅** (`dotnet test Metin2.Tests.csproj`)
+**Test: 685/685 ✅** (`dotnet test Metin2.Tests.csproj`)
 
 ## Gelişim Hikayesi (Adım Adım)
 
@@ -327,6 +328,21 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
   vid=0, gold=0, count=0), gerçek doğrulama sunucuda.
 - Test: 636 → **681/681** (+45).
 
+### Adım 28 — Unity Önyüz Temeli: GameFlow + DemoServer (Sprint 6 başlangıcı)
+- **GC_PHASE interleaving gap'i kapatıldı**: gerçek sunucu faz paketlerini step-reply'lerin
+  arasına iter ([90][PHASE(SELECT)][32]) — step-client'lar buna takılırdı, loopback testleri
+  göndermediği için görünmemişti. `HandshakeClient` artık faz paketlerini ping gibi şeffaf
+  tüketip `PhaseChanged` eventi ile açığa çıkarıyor.
+- **`Metin2.Gameplay`** (5. assembly, motor-bağımsız): `GameFlow` — üst seviye bağlantı
+  yaşam döngüsü (login → channel → select → dünya girişi → event pump) + tip'li event'ler;
+  Unity katmanı bunlara bağlanacak.
+- **`DemoServer`**: süreç-içi sahte sunucu — gerçek DH2+cipher ve gerçek frame sıraları
+  (faz push'ları + keepalive dahil). Canlı sunucu olmadan uçtan uca entegrasyon kanıtı
+  ve UI demo-modunun beslemesi.
+- Uçtan uca test: auth → channel → karakter → dünya → spawn → saldırı/ölüm → hareket →
+  item taşıma, faz ve state dizileri assert'li.
+- Test: 681 → **685/685** (+4).
+
 ## Test Tablosu (Komut: `dotnet test Metin2.Tests.csproj`)
 
 | Alan | Test | Kapsam |
@@ -386,6 +402,7 @@ Neden: "yarın bakınca anlaşılsın" — hikaye git log + dosyalarda izlenebil
 | Combat (5) | `CombatClientTests` | Loopback saldırı turu + 5 event tipi, faz guard'ları (stun Loading'de reddi), vid guard |
 | ItemAction-Codecs (34) | `PacketCGItemUseTests`, `PacketCGItemMoveTests`, `PacketCGItemDropTests`, `PacketCGItemDrop2Tests`, `PacketCGItemPickupTests`, `PacketCGItemUseToItemTests` | Golden layout (TItemPos), item/gold varyantları, round-trip, truncation, header |
 | Inventory-Send (3) | `InventoryClientTests` | Loopback move/use/drop2/pickup + use-to-item/gold-drop turu, NPOS/vid/gold/count guard'ları |
+| GameFlow (3) | `GameFlowTests` | Uçtan uca: GameFlow ↔ DemoServer (auth→channel→select→dünya→saldırı/hareket/item), faz+state dizileri, yanlış kimlik |
 
 ## Mimari
 
@@ -425,6 +442,9 @@ Assets/Scripts/
 ├── Network/        (Metin2.Network.asmdef)
 │   ├── Session/    — NetworkSessionState, HandshakeClient (0xff→0xfb→0xfb→0xfa + keepalive ping→pong), AuthLoginClient (111→150/7), ChannelLoginClient (109→90→32), CharacterSelectClient (6/4/5/10→8/9/10/11), WorldEntryClient (113→10→106+121), GameWorldClient (16/76→1/2), InventoryClient (21/20/25 + C2S 11/12/13/15/20/60), MovementClient (7/8→3/5), CombatClient (2→17/13/14/36/135)
 │   └── Transport/  — ITcpConnection, TcpConnection, SimpleTcpProbe
+├── Gameplay/       (Metin2.Gameplay.asmdef — noEngineReferences: true)
+│   ├── Flow/       — GameFlow, GameFlowState (bağlantı yaşam döngüsü + tip'li event pump)
+│   └── Demo/       — DemoServer (süreç-içi sahte sunucu: gerçek DH2/cipher + frame sıraları)
 Assets/Tests/EditMode/ (Metin2.Tests.asmdef)
     ├── Core/       — SecretRedactorTests
     ├── Network/    — TcpConnectionTests, HandshakeClientTests, AuthLoginClientTests, ChannelLoginClientTests, CharacterSelectClientTests, WorldEntryClientTests, GameWorldClientTests, InventoryClientTests, MovementClientTests
@@ -445,7 +465,7 @@ dotnet test Metin2.Tests.csproj
 # Window > General > Test Runner > EditMode > Run All
 ```
 
-**Son test sonucu: 681/681 başarılı ✅**
+**Son test sonucu: 685/685 başarılı ✅**
 
 ## Dokümanlar
 
@@ -464,11 +484,18 @@ dotnet test Metin2.Tests.csproj
 ## Bilinen Eksikler (UNVERIFIED)
 
 - Canlı sunucuya karşı uçtan-uca handshake decode (offline loopback + kaynak-kanıt tamam; gerçek auth core final kanıtı)
+- Headless test altyapısını besleyen el yapımı `Metin2.*.csproj` + `Metin2Unity.sln` repoya
+  commit edilmiyor (`*.csproj`/`*.sln` gitignore'da — Unity kendi ürettikleriyle aynı isimde
+  çakışır). Taze clone testleri çalıştıramaz; Unity kurulumundan ÖNCE bu dosyaların
+  çakışmasız bir yapıya taşınması (örn. `headless/` klasörü + yeniden adlandırma) gerekir.
 
 ## Sonraki Adım
 
-**Headless canlı giriş**: staging sunucuya handshake → world entry denemesi
-(test hesabı, staging izolasyonu, DB'ye yazma yok).
+**Unity önyüzü**: Bootstrap/Login scene'lerini `GameFlow` + `DemoServer`
+demo-moduna bağlamak (Unity 6 LTS 6000.0.23f1 kurulumu + Android modülü
+gerektirir; Gameplay assembly'si motor-bağımsız olduğu için scene öncesi tüm
+akış headless test'li). Ertelenen canlı giriş denemesi paralel bir noktada
+yapılacak (staging izolasyonu, DB'ye yazma yok).
 
 ## Kurallar
 

@@ -141,6 +141,30 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 - `packet-catalog.json`: +6 paket → toplam 49 (42 VERIFIED, 7 PARTIALLY).
 - Test: 636 → 681 (+45: codec 34, InventoryClient loopback send 3 + guard
   senaryoları).
+### Düzeltilen (kod, 2.)
+- **GC_PHASE interleaving gap'i kapatıldı**: gerçek sunucu her SetPhase'te
+  GC_PHASE (0xfd) iter (desc.cpp:518) ve step-reply'lerin ARASINA girer
+  (kanal hop'u wire'da [90][PHASE(SELECT)][32]). Step-client'lar buna takılırdı
+  — loopback testleri faz paketi göndermediği için görünmemişti.
+  `HandshakeClient.ReceiveSecureFrameAsync` artık GC_PHASE'i ping gibi şeffaf
+  tüketir + `PhaseChanged` event'i ile açığa çıkarır; 2 mevcut test yeni
+  sözleşmeye güncellendi, 1 yeni test eklendi.
+### Eklenen (2.)
+- **`Metin2.Gameplay` assembly** (5. assembly, motor-bağımsız — noEngineReferences):
+  Unity önyüzünün bağlanacağı üst katman.
+- `GameFlow` (`Flow/`): yüksek seviye bağlantı yaşam döngüsü — LoginAsync
+  (auth hop) → ConnectChannelAsync → SelectCharacterAsync (loading bundle +
+  item drain) → EnterWorldAsync → RunEventPumpAsync (Game-faz tip'li event
+  dispatcher: spawn/item/combat/move/sync). Tip'li event'ler + StateChanged +
+  ServerPhaseChanged; gönderim için step client'lar exposed.
+- `DemoServer` (`Demo/`): süreç-içi sahte sunucu — GERÇEK DH2+cipher, gerçek
+  frame sıraları (GC_PHASE push'ları + keepalive ping'i dahil), scripted dünya
+  kuralları (saldırı→hasar/HP/motion/ölüm, hareket→rebroadcast, item taşıma→
+  del+set, yanlış parola→WRONGPWD). Canlı sunucu olmadan entegrasyon kanıtı
+  ve gelecekteki UI demo-modu beslemesi.
+- `GameFlowTests` (3): uçtan uca yolculuk (faz ve state dizileri dahil),
+  yanlış kimlik doğrulama, state-machine guard'u.
+- Test: 681 → 685 (+4: GameFlow 3, GC_PHASE 1).
 ### Düzeltilen (kod)
 - `PacketHeaders.HEADER_GC_PING`: 0xfe → **44**. Kök neden: 0xfe/`packet.h:115`
   aslında `HEADER_GC_BINDUDP` — önceki geliştirici satırı yanlış okumuş. Her iki

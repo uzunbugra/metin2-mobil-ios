@@ -53,6 +53,13 @@ namespace Metin2.Network.Session
 
         public bool Completed { get; private set; }
 
+        /// <summary>
+        /// Raised on every server phase transition (GC_PHASE 0xfd, pushed by
+        /// DESC::SetPhase on every phase change, desc.cpp:518). Raised from the
+        /// receive thread — Unity subscribers must marshal to the main thread.
+        /// </summary>
+        public event Action<PhaseType> PhaseChanged;
+
         public HandshakeClient(ITcpConnection connection, Dh2KeyAgreement agreement = null)
         {
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
@@ -254,6 +261,18 @@ namespace Metin2.Network.Session
                     if (frame.Length > 0 && frame[0] == PacketHeaders.HEADER_GC_PING)
                     {
                         await SendPongAsync(encrypted: true, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    if (frame.Length > 0 && frame[0] == PacketHeaders.HEADER_GC_PHASE)
+                    {
+                        // Server pushes GC_PHASE on every SetPhase (desc.cpp:518),
+                        // interleaved between the step replies (e.g. the channel
+                        // hop wires [90 empire][GC_PHASE(SELECT)][32 slots]).
+                        // Consume it transparently so step clients never see it;
+                        // surface it via PhaseChanged for the session/UI layer.
+                        PacketGCPhase phase = PacketGCPhaseCodec.Deserialize(frame);
+                        PhaseChanged?.Invoke(phase.Phase);
                         continue;
                     }
 
