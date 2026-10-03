@@ -31,6 +31,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 6 — Önyüz Temeli (adım 1) | ✅ Tamamlandı | `GameFlow` + `DemoServer`: uçtan uca entegrasyon (GC_PHASE şeffaf tüketim dahil) |
 | Sprint 7 — URP Migration + iOS | ✅ Tamamlandı | BIRP→URP (deprecated fix), iOS Build Support + `IosBuildScript`, Xcode projesi headless üretildi; ilk iOS-line push'u |
 | Sprint 8 — iOS Cihaz Entegrasyonu | 🟡 Devam | Safe area ✅, lifecycle teardown ✅, shader pin ✅ — Xcode imzalama/cihaz koşusu kullanıcı adımını bekliyor |
+| Sprint 10 — İçerik Pipeline'ı | 🟡 Devam | SP10-1 extractor ✅ (gerçek veriyle kanıtlı), SP10-2 proto converter ✅ (1.347 mob + 5.929 item JSON), SP10-8 lisans ADR ✅; sırada ikonlar + Unity import |
 
 **Test: 685/685 ✅** (`dotnet test headless/Metin2.Tests.Headless.csproj`)
 

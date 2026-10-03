@@ -4,6 +4,22 @@ Tüm önemli değişiklikler bu dosyada izlenir. Format: `Keep a Changelog` uyar
 Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
+## [Unreleased]
+### Eklenen (Sprint 10, devam)
+- **SP10-2 proto converter**: `Tools/ProtoConverter/` — MMPT/MIPX + MCOZ
+  blob decrypt → TMobTable[255]/TClientItemTable[156] parse → JSON;
+  item_list (icon/model yolları) + itemdesc (CP1254) merge; bağımlılıksız
+  CP1254 decoder (Latin-1 + 5 Türkçe override); SHA-256 kaynak hash.
+  Gerçek veriyle doğrulandı: **1.347 mob** (MOB 101 "Yabani Köpek",
+  folder stray_dog), **5.929 item** (ITEM 19 "Kılıç+9" +
+  icon/item/00010.tga). Not: szName iç isimler CP949 (Korece); Unity
+  localeName kullanacak. JSON çıktıları telifli isim içerdiği için
+  local-only (ADR-0003).
+- **SP10-3 (kısmi) pack envanter raporları**: icon 1.952 dosya/5 MB,
+  PC 2.704/70 MB, Monster 3.092/67 MB — model/animasyon dosyalarının
+  tamamına yakını tip 1 (anahtarsız LZO).
+- PackExtractor: `dumpblob` debug komutu (proto blob decrypt), report
+  çıktı dizini otomatik oluşturma.
 ### Eklenen (Sprint 10)
 - **SP10-1 EIX/EPK extractor CLI**: `Tools/PackExtractor/` (net10.0, sıfır
   bağımlılık) — TEA (tea.cpp portu) + LZO1X (kernel safe decompressor

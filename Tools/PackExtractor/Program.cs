@@ -33,6 +33,19 @@ namespace Metin2.Tools.PackExtractor
             try
             {
                 string command = args[0].ToLowerInvariant();
+
+                // Blob-level debug command does not operate on a pack.
+                if (command == "dumpblob")
+                {
+                    if (args.Length < 4)
+                    {
+                        PrintUsage();
+                        return 2;
+                    }
+
+                    return DumpBlob(args[1], args[2], args[3]);
+                }
+
                 string eixPath = args[1];
                 var options = ParseOptions(args.Skip(2).ToArray());
 
@@ -186,6 +199,50 @@ namespace Metin2.Tools.PackExtractor
             return failed == 0 ? 0 : 1;
         }
 
+        private static int DumpBlob(string blobPath, string keyName, string outFile)
+        {
+            uint[]? key = keyName.ToLowerInvariant() switch
+            {
+                "index" => EterPackReader.IndexKey,
+                "security" => EterPackReader.SecurityKey,
+                "mobproto" => new uint[] { 4813894, 18955, 552631, 6822045 },
+                "itemproto" => new uint[] { 173217, 72619434, 408587239, 27973291 },
+                "none" => null,
+                _ => throw new ArgumentException($"Unknown key: {keyName}"),
+            };
+
+            byte[] blob = File.ReadAllBytes(blobPath);
+
+            // Files like mob_proto/item_proto start with their own header
+            // (MMPT/MIPX + count/stride + dataSize) before the MCOZ blob;
+            // auto-skip to the blob if the file does not start with one.
+            ReadOnlySpan<byte> blobSpan = blob;
+            if (blobSpan.Length < 4 || BitConverter.ToUInt32(blobSpan.Slice(0, 4)) != Mcoz.FourCC)
+            {
+                int found = -1;
+                for (int i = 4; i <= 64 && i + 4 <= blobSpan.Length; i++)
+                {
+                    if (BitConverter.ToUInt32(blobSpan.Slice(i, 4)) == Mcoz.FourCC)
+                    {
+                        found = i;
+                        break;
+                    }
+                }
+
+                if (found < 0)
+                {
+                    throw new InvalidDataException($"No MCOZ blob found in first bytes of {blobPath}");
+                }
+
+                blobSpan = blobSpan.Slice(found);
+            }
+
+            byte[] data = Mcoz.Decompress(blobSpan, key);
+            File.WriteAllBytes(outFile, data);
+            Console.WriteLine($"blob ({data.Length} B) -> {outFile}");
+            return 0;
+        }
+
         private static int DumpIndex(EterPackReader reader, string outFile)
         {
             // Debug aid: writes the raw (decrypted) index content so the
@@ -240,6 +297,12 @@ namespace Metin2.Tools.PackExtractor
             }
             else
             {
+                string? directory = Path.GetDirectoryName(Path.GetFullPath(reportPath));
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
                 File.WriteAllText(reportPath, json);
                 Console.WriteLine($"report -> {reportPath}");
             }

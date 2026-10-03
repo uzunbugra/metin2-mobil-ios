@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- SP10-2: item_proto/mob_proto converter (docs/assets/asset-pipeline-research.md §2.4).
+       Shares the format ports (TEA/LZO1X/MCOZ/CRC32) with PackExtractor via
+       link-compilation; no external dependencies. Output JSON embeds
+       copyrighted name strings -> local-only (ADR-0003). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>metin2-protoconverter</AssemblyName>
+    <RootNamespace>Metin2.Tools.ProtoConverter</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../PackExtractor/Tea.cs" Link="Tea.cs" />
+    <Compile Include="../PackExtractor/Lzo1x.cs" Link="Lzo1x.cs" />
+    <Compile Include="../PackExtractor/Mcoz.cs" Link="Mcoz.cs" />
+    <Compile Include="../PackExtractor/Crc32.cs" Link="Crc32.cs" />
+  </ItemGroup>
+
+</Project>
