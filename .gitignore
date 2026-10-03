@@ -41,3 +41,6 @@ ExportedObj/
 .consulo/
 .fleet/
 .idea/
+
+# Headless test host (local-only; csproj policy — README known gaps)
+headless/

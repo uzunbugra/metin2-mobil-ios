@@ -5,6 +5,37 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
 ### Eklenen
+- **URP migration (Sprint 7)**: Built-in Render Pipeline → Universal Render
+  Pipeline. Unity 6.5+ BIRP'i deprecated etti; proje Unity 6000.6.4f1'de
+  uyarı veriyordu. `com.unity.render-pipelines.universal` 17.6.0 paketi +
+  `Assets/Settings/Metin2URP(.asset|Renderer.asset)` + Graphics/Quality
+  atamaları + Gamma→Linear renk uzayı. `UrpMigration.cs` editör aracı
+  idempotent (menü: Metin2 → Migrate to URP; headless `-executeMethod` ile
+  de koşulur). URP global settings URP paketinin AssetPostprocessor'ı
+  tarafından otomatik oluşturuldu. Kayıt:
+  `docs/sprints/SPRINT_07-urp-migration.md`; yol haritası:
+  `docs/sprints/SPRINT_PLAN.md` (iOS line, hedef repo
+  `uzunbugra/metin2-mobil-ios`).
+- `IosBuildScript.cs` (`Metin2.Frontend.EditorTools`): Android aynısının iOS
+  uyarlaması — Xcode projesi üretimi (`Builds/iOS`), landscape-only,
+  `com.bugrauzun.metin2demo`. Headless: `-buildTarget iOS -executeMethod
+  …IosBuildScript.BuildXcodeProject`. İmzalama Sprint 8 (Xcode).
+- **Repo yapısı kararı (iOS hattı):** iOS hattı `metin2-ios/` kökünde;
+  `metin2-android/` (upstream klon) ve `fulldosya/` (server workspace)
+  `.gitignore`'da — local referans, push'lanmaz. Upstream'e
+  (YusuffEren/metin2-android) **push yapılmaz**; teslim push'u
+  `uzunbugra/metin2-mobil-ios`'a yapılır (`git push ios main`).
+- `Metin2.Frontend.Editor.asmdef`: URP (Universal.Runtime + Core.Runtime)
+  referansları.
+- Repo hijyeni: `Assets/Scripts/Frontend/Editor/**.meta` dosyaları ilk kez
+  repoya alındı (önceki commit'lerde dışarıda kalmıştı — GUID riski).
+### Düzeltilen (kod)
+- `AndroidBuildScript.cs` Unity 6000.6 derleme hatası:
+  `UnityEditor.Build.Reporting.SwitchActiveBuildTargetStatus` tipi
+  kaldırılmış — `SwitchActiveBuildTarget` artık `bool` döndürüyor.
+  `PlayerSettings.SetApplicationIdentifier` → `NamedBuildTarget.Android`
+  (obsolete CS0618). Not: batch mode'da build target değişimi
+  desteklenmiyor; headless build `-buildTarget` arg'ı ister.
 - `HandshakeClient` (`Metin2.Network.Session`): GC 0xff → GC 0xfb → DH2 agree +
   `CipherKeyDerivation` → CG 0xfb → 0xfa bekleme → `SetActivated(true)` (client
   polarity true); fail-closed (`HandshakeFailedException`); şifreli trafik için

@@ -9,6 +9,9 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 
 ## Proje Durumu
 
+> **Editor sürümü:** Unity 6000.6.4f1 (Unity 6.6, URP 17.6.0) — render pipeline
+> migration kaydı: `docs/sprints/SPRINT_07-urp-migration.md`.
+
 | Sprint | Durum | Açıklama |
 |--------|-------|----------|
 | Sprint 0 — Kaynak Audit | ✅ Tamamlandı | Kaynak kod haritası, protokol keşfi, dokümanlar |
@@ -26,6 +29,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Temel Combat (adım 4) | ✅ Tamamlandı | `CombatClient`: saldırı + point/stun/dead/motion/damage akışı (loopback kanıtlı) |
 | Sprint 5 — Envanter Aksiyonları (adım 5) | ✅ Tamamlandı | `InventoryClient` gönderim: use/move/drop/pickup/use-to-item (loopback kanıtlı) |
 | Sprint 6 — Önyüz Temeli (adım 1) | ✅ Tamamlandı | `GameFlow` + `DemoServer`: uçtan uca entegrasyon (GC_PHASE şeffaf tüketim dahil) |
+| Sprint 7 — URP Migration + iOS | 🟡 Devam | BIRP→URP (deprecated fix) ✅, iOS Build Support + build script ⏳ |
 
 **Test: 685/685 ✅** (`dotnet test headless/Metin2.Tests.Headless.csproj`)
 
@@ -491,6 +495,8 @@ dotnet test headless/Metin2.Tests.Headless.csproj
 - [`docs/protocol/connection-flow.md`](docs/protocol/connection-flow.md) — Tam bağlantı akışı
 - [`docs/protocol/protocol-inventory.md`](docs/protocol/protocol-inventory.md) — Paket envanteri ve framing kuralları
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
+- [`docs/sprints/SPRINT_PLAN.md`](docs/sprints/SPRINT_PLAN.md) — Mevcut durum + iOS yol haritası (Sprint 7–12)
+- [`docs/sprints/SPRINT_07-urp-migration.md`](docs/sprints/SPRINT_07-urp-migration.md) — BIRP→URP migration kaydı
 - [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 49 paket: 42 VERIFIED + 7 PARTIALLY (item aksiyonları +6)
 
 ## Bilinen Eksikler (UNVERIFIED)
@@ -502,11 +508,10 @@ dotnet test headless/Metin2.Tests.Headless.csproj
 
 ## Sonraki Adım
 
-**Unity önyüzü**: Bootstrap/Login scene'lerini `GameFlow` + `DemoServer`
-demo-moduna bağlamak (Unity 6 LTS 6000.0.23f1 kurulumu + Android modülü
-gerektirir; Gameplay assembly'si motor-bağımsız olduğu için scene öncesi tüm
-akış headless test'li). Ertelenen canlı giriş denemesi paralel bir noktada
-yapılacak (staging izolasyonu, DB'ye yazma yok).
+**Sprint 7 devamı (iOS hazırlığı)**: Unity Hub'dan iOS Build Support kurulumu +
+`IosBuildScript.cs` (Android aynısı, `-buildTarget iOS` headless arg'ı ile).
+Yol haritası: [`docs/sprints/SPRINT_PLAN.md`](docs/sprints/SPRINT_PLAN.md).
+Ertelenen canlı giriş denemesi Sprint 9'da (staging izolasyonu, DB'ye yazma yok).
 
 ## Kurallar
 

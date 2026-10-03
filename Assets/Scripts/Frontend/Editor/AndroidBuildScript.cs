@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using UnityEditor;
-using UnityEditor.Build.Reporting;
+using UnityEditor.Build;
 using UnityEngine;
+using UnityEditor.Build.Reporting;
 
 namespace Metin2.Frontend.EditorTools
 {
@@ -34,7 +35,7 @@ namespace Metin2.Frontend.EditorTools
 
             PlayerSettings.companyName = "YusuffEren";
             PlayerSettings.productName = "Metin2 Demo";
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.yusufferen.metin2demo");
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.yusufferen.metin2demo");
 
             // Landscape only (guide §9.1: reference gameplay orientation).
             PlayerSettings.allowedAutorotateToPortrait = false;
@@ -48,8 +49,11 @@ namespace Metin2.Frontend.EditorTools
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                if (EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android)
-                    != UnityEditor.Build.Reporting.SwitchActiveBuildTargetStatus.Success)
+                // Unity 6: SwitchActiveBuildTarget returns bool (the
+                // SwitchActiveBuildTargetStatus enum was removed). Note: not
+                // callable in batch mode — use the -buildTarget Android
+                // command line argument for headless builds.
+                if (!EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android))
                 {
                     throw new InvalidOperationException(
                         "Failed to switch to the Android build target. Is 'Android Build Support' installed for this editor?");
