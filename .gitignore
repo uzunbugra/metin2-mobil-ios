@@ -44,3 +44,9 @@ ExportedObj/
 
 # Headless test host (local-only; csproj policy — README known gaps)
 headless/
+
+# Local reference workspaces (NOT pushed — user decision, SPRINT_07)
+# - metin2-android: upstream clone (YusuffEren/metin2-android), fetch-only
+# - fulldosya: server/client source workspace (4.2 GB, licensed game data)
+metin2-android/
+fulldosya/
