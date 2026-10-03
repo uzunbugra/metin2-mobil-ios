@@ -1,7 +1,9 @@
 # Sprint 7 — Render Pipeline Migration (BIRP → URP) + iOS Hazırlığı
 
-**Durum:** adım 1–2 tamamlandı (URP migration + API düzeltmesi).
-**Tarih:** 2026-10-03 · **Repo hedefi:** `uzunbugra/metin2-mobil-ios` (iOS line'ının ilk push'u).
+**Durum:** ✅ Tamamlandı (URP migration, iOS Build Support, IosBuildScript,
+Xcode projesi üretimi). İmzalama/cihaz dağıtımı Sprint 8'de.
+**Tarih:** 2026-10-03 · **Teslim:** `uzunbugra/metin2-mobil-ios` (iOS line'ın
+ilk push'u; repo kökü `metin2-ios/`, geçmişin tamamı taşındı).
 
 ## Problem
 
@@ -78,11 +80,19 @@ yalnızca local referans, push'lanmaz. Upstream'e (YusuffEren/metin2-android)
   Not: ardışık koşularda loopback TIME_WAIT birikimi 1-3 ağ testini
   düşürebiliyor (izolasyon/cooldown ile temiz geçiyor) — çevresel
   flakiness, kod hatası değil.
+- **iOS Build Support** kurulu (Unity Hub CLI:
+  `Unity Hub --headless install-modules -m ios -v 6000.6.4f1`).
+- **iOS Xcode projesi headless üretildi**:
+  `Unity -batchmode -quit -buildTarget iOS -executeMethod
+  …IosBuildScript.BuildXcodeProject` → `Builds/iOS/Unity-iPhone.xcodeproj`
+  (IL2CPP çıktısı dahil, ~960 MB). Build script'i PlayerSettings'ı
+  yazdı: `bugrauzun` / `Metin2 Demo` / `com.bugrauzun.metin2demo`,
+  landscape-only. URP asset'lerinde Unity'nin versiyon-yükseltme
+  serialization geçişi (renderer GUID bağlantısı korunarak) commit'lendi.
 
 ## Bilinen riskler
 
 - `Shader.Find("Universal Render Pipeline/Lit")` runtime materyal üretimi
   cihaz build'lerinde stripping'e takılabilir → ilk cihaz build'inde
   doğrula, gerekirse Always Included Shaders'a ekle (Sprint 8).
-- iOS Build Support modülü bu makinede kurulu değil → Unity Hub'dan
-  eklenmeli (Sprint 7 adım 3).
+- Xcode imzalama henüz yapılmadı (Sprint 8: team id + provisioning).

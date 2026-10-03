@@ -20,6 +20,13 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
   uyarlaması — Xcode projesi üretimi (`Builds/iOS`), landscape-only,
   `com.bugrauzun.metin2demo`. Headless: `-buildTarget iOS -executeMethod
   …IosBuildScript.BuildXcodeProject`. İmzalama Sprint 8 (Xcode).
+- **iOS Build Support kuruldu** (Unity Hub CLI: `--headless
+  install-modules -m ios -v 6000.6.4f1`) ve **Xcode projesi headless
+  üretildi**: `Builds/iOS/Unity-iPhone.xcodeproj` (`-buildTarget iOS
+  -executeMethod …IosBuildScript.BuildXcodeProject`). PlayerSettings:
+  `bugrauzun` / `Metin2 Demo` / `com.bugrauzun.metin2demo`, landscape-only.
+  URP asset'lerinde versiyon-yükseltme serialization geçişi (renderer GUID
+  bağlantısı korunarak). Sprint 7 ✅ tamamlandı.
 - **Repo yapısı kararı (iOS hattı):** iOS hattı `metin2-ios/` kökünde;
   `metin2-android/` (upstream klon) ve `fulldosya/` (server workspace)
   `.gitignore`'da — local referans, push'lanmaz. Upstream'e

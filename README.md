@@ -29,7 +29,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Temel Combat (adım 4) | ✅ Tamamlandı | `CombatClient`: saldırı + point/stun/dead/motion/damage akışı (loopback kanıtlı) |
 | Sprint 5 — Envanter Aksiyonları (adım 5) | ✅ Tamamlandı | `InventoryClient` gönderim: use/move/drop/pickup/use-to-item (loopback kanıtlı) |
 | Sprint 6 — Önyüz Temeli (adım 1) | ✅ Tamamlandı | `GameFlow` + `DemoServer`: uçtan uca entegrasyon (GC_PHASE şeffaf tüketim dahil) |
-| Sprint 7 — URP Migration + iOS | 🟡 Devam | BIRP→URP (deprecated fix) ✅, iOS Build Support + build script ⏳ |
+| Sprint 7 — URP Migration + iOS | ✅ Tamamlandı | BIRP→URP (deprecated fix), iOS Build Support + `IosBuildScript`, Xcode projesi headless üretildi; ilk iOS-line push'u |
 
 **Test: 685/685 ✅** (`dotnet test headless/Metin2.Tests.Headless.csproj`)
 
@@ -508,8 +508,8 @@ dotnet test headless/Metin2.Tests.Headless.csproj
 
 ## Sonraki Adım
 
-**Sprint 7 devamı (iOS hazırlığı)**: Unity Hub'dan iOS Build Support kurulumu +
-`IosBuildScript.cs` (Android aynısı, `-buildTarget iOS` headless arg'ı ile).
+**Sprint 8 (iOS cihaz entegrasyonu)**: Xcode imzalama + gerçek cihazda demo,
+safe area, yaşam döngüsü/reconnect, `Shader.Find` stripping doğrulaması.
 Yol haritası: [`docs/sprints/SPRINT_PLAN.md`](docs/sprints/SPRINT_PLAN.md).
 Ertelenen canlı giriş denemesi Sprint 9'da (staging izolasyonu, DB'ye yazma yok).
 

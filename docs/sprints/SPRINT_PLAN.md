@@ -33,7 +33,7 @@ dosya+satır referanslı) inşa edildi; önyüz temeli DemoServer üzerinden
 
 ## 2. Yol Haritası
 
-### Sprint 7 — Render Pipeline Migration + iOS Hazırlığı *(bu sprint)*
+### Sprint 7 — Render Pipeline Migration + iOS Hazırlığı ✅ *(tamamlandı, 2026-10-03)*
 **İşler**
 1. **BIRP → URP migration** (Unity 6.5+ Built-in Render Pipeline deprecated):
    URP 17.6.0 paketi, `Assets/Settings/Metin2URP(.asset|Renderer.asset)`,
@@ -41,15 +41,16 @@ dosya+satır referanslı) inşa edildi; önyüz temeli DemoServer üzerinden
    (menü: Metin2 → Migrate to URP; batch-mode çalıştırılabilir, idempotent).
 2. `AndroidBuildScript.cs` Unity 6.6 API düzeltmesi
    (`SwitchActiveBuildTargetStatus` kaldırıldı → `bool`; `NamedBuildTarget`).
-3. Unity Hub'dan iOS Build Support kurulumu.
+3. Unity Hub'dan iOS Build Support kurulumu ✅ (CLI ile).
 4. `IosBuildScript.cs` (AndroidBuildScript aynısı): landscape, Xcode projesi
-   üretimi (`-buildTarget iOS` batch arg'ı ile headless).
+   üretimi (`-buildTarget iOS` batch arg'ı ile headless) ✅ —
+   `Builds/iOS/Unity-iPhone.xcodeproj` üretildi.
 
 **Çıkış kriterleri**
 - Proje Unity 6.6'da deprecated uyarısı olmadan açılıyor; Demo dünyası URP
   altında Play modunda görsel olarak doğru (pembe materyal yok).
-- EditMode testleri geçiyor (685/685).
-- iOS Xcode projesi üretilebiliyor (imzalama sonraki sprint).
+- EditMode testleri geçiyor (685/685 — headless dotnet yolu).
+- iOS Xcode projesi üretilebiliyor (imzalama Sprint 8). ✅
 
 ### Sprint 8 — iOS Cihaz Entegrasyonu
 **İşler**
