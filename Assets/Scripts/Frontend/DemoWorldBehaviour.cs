@@ -1,8 +1,11 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Metin2.Frontend.Proto;
 using Metin2.Gameplay.Demo;
 using Metin2.Gameplay.Flow;
 using Metin2.Network.Session;
@@ -129,8 +132,124 @@ namespace Metin2.Frontend
             _flow.EntitySpawned += add => Enqueue(() => SpawnEntity(add));
             _flow.EntityDespawned += vid => Enqueue(() => DespawnEntity(vid));
             _flow.EntityMoved += move => Enqueue(() => MovePlayer(move));
-            _flow.ItemChanged += item => Enqueue(() => Log($"item: {item.EventKind} cell {item.Cell}"));
+            _flow.ItemChanged += item => Enqueue(() => OnItemEvent(item));
             _flow.CombatEventReceived += combat => Enqueue(() => OnCombatEvent(combat));
+        }
+
+        // --- inventory strip (real proto data: icons + locale names) ----------
+
+        private readonly Dictionary<ushort, (uint Vnum, byte Count)> _inventory =
+            new Dictionary<ushort, (uint, byte)>();
+
+        private ItemDatabase? _itemDatabase;
+
+        private void OnItemEvent(ItemEvent item)
+        {
+            if (item.Window != ItemWindow.Inventory)
+            {
+                return;
+            }
+
+            uint vnum;
+            switch (item.EventKind)
+            {
+                case ItemEvent.Kind.Set:
+                    vnum = item.Set.Vnum;
+                    _inventory[item.Cell] = (item.Set.Vnum, item.Set.Count);
+                    break;
+                case ItemEvent.Kind.Updated:
+                    vnum = _inventory.TryGetValue(item.Cell, out (uint Vnum, byte Count) current)
+                        ? current.Vnum
+                        : 0;
+                    if (vnum != 0)
+                    {
+                        _inventory[item.Cell] = (vnum, item.Update.Count);
+                    }
+
+                    break;
+                default:
+                    vnum = _inventory.TryGetValue(item.Cell, out (uint Vnum, byte Count) before)
+                        ? before.Vnum
+                        : 0;
+                    _inventory.Remove(item.Cell);
+                    break;
+            }
+
+            ItemDef? def = LookupItem(vnum);
+            string name = def != null ? def.LocaleName : "bilinmeyen item";
+            Log($"envanter: hücre {item.Cell} {item.EventKind} → {name}");
+        }
+
+        private ItemDef? LookupItem(uint vnum)
+        {
+            if (vnum == 0)
+            {
+                return null;
+            }
+
+            _itemDatabase ??= Resources.Load<ItemDatabase>("GameData/ItemDatabase");
+            return _itemDatabase?.Find(vnum);
+        }
+
+        /// <summary>
+        /// Bottom-center strip: server-authoritative inventory cells with
+        /// real icons from the imported item_proto/icon pipeline (local-only
+        /// assets, ADR-0003). Falls back to vnum text when the database is
+        /// not imported.
+        /// </summary>
+        private void DrawInventoryStrip(Rect safe)
+        {
+            if (_inventory.Count == 0)
+            {
+                return;
+            }
+
+            const float cellSize = 52f;
+            const float gap = 6f;
+            const int maxCells = 8;
+
+            (ushort Cell, uint Vnum, byte Count)[] cells = _inventory
+                .OrderBy(kv => kv.Key)
+                .Take(maxCells)
+                .Select(kv => (kv.Key, kv.Value.Vnum, kv.Value.Count))
+                .ToArray();
+
+            float width = cells.Length * cellSize + (cells.Length - 1) * gap;
+            float x = safe.x + safe.width * 0.5f - width * 0.5f;
+            float y = safe.y + safe.height - cellSize - 16f;
+
+            GUI.Box(new Rect(x - 8f, y - 24f, width + 16f, cellSize + 32f), "ENVANTER");
+
+            var labelStyle = GUI.skin.GetStyle("Label");
+            var previousAlignment = labelStyle.alignment;
+            var previousFontSize = labelStyle.fontSize;
+
+            for (int i = 0; i < cells.Length; i++)
+            {
+                (ushort cellIndex, uint vnum, byte count) = cells[i];
+                Rect rect = new Rect(x + i * (cellSize + gap), y, cellSize, cellSize);
+                GUI.Box(rect, "");
+
+                ItemDef? def = LookupItem(vnum);
+                if (def?.Icon != null)
+                {
+                    GUI.DrawTexture(rect, def.Icon.texture, ScaleMode.ScaleToFit);
+                }
+                else
+                {
+                    GUI.Label(rect, vnum.ToString());
+                }
+
+                // Count overlay, bottom-right of the cell.
+                labelStyle.alignment = TextAnchor.LowerRight;
+                labelStyle.fontSize = 12;
+                GUI.Label(
+                    new Rect(rect.x - 6f, rect.y, rect.width + 6f, rect.height),
+                    count > 1 ? $"x{count}" : string.Empty);
+            }
+
+            labelStyle.alignment = previousAlignment;
+            labelStyle.fontSize = previousFontSize;
         }
 
         private async Task RunJourneyAsync(int authPort, int gamePort, CancellationToken token)
@@ -583,6 +702,7 @@ namespace Metin2.Frontend
                 "Touch: sol yarı = joystick, SALDIR = attack\nKeyboard: WASD move, SPACE attack");
 
             DrawTouchControls();
+            DrawInventoryStrip(safe);
         }
 
         /// <summary>

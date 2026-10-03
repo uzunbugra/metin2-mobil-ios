@@ -5,6 +5,33 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
 ## [Unreleased]
+### Eklenen (Sprint 10, devam 2)
+- **SP10-6 motion metadata parser**: `Tools/MotionParser/` — motlist.txt +
+  .msa parser (RaceManager/RaceMotionData/GameType birebir port; truncation
+  fallback, attacking/hitPositions/event blokları). Gerçek veri:
+  **Monster pack'in 83 ırkının tamamı** parse edildi (0 hata); wolf tam
+  detay, warrior 36 motion/21 event. Kritik bulgu: PC pack'lerinde
+  motlist.txt yok (pack dışı kaynak — SP10-5'te ele alınacak).
+- **SP10-7 .sub sprite slicer**: `Tools/SubSlicer/` — GrpSubImage.cpp +
+  FileLoader tokenizer portu (v1.0/v2.0, tırnaklı değerler, atoi semantiği).
+  Gerçek veri: **784/784 .sub**, 48 atlas (windows.dds/public.dds/
+  taskbar.tga…), 0 atlanan → `Extracted/subs.json`.
+- Her iki araç da subagent ile üretildi, ana hat tarafından gözden geçirildi.
+- **SP10-4 + Unity proto import**: `ProtoDatabases.cs` (Frontend —
+  `ItemDef`/`MobDef` + `ItemDatabase`/`MobDatabase` ScriptableObject,
+  lazy vnum lookup; sunum verisi — otorite server'da, guide §7.4) +
+  `ProtoImporter.cs` (Editor — converter JSON → database asset'leri,
+  ikon TGA → sprite [ASTC 6x6/64px, mipmap kapalı], `ItemDef.Icon`
+  linki; menu + headless).
+- **Demo envanter şeridi**: `DemoWorldBehaviour` — `ItemChanged`
+  eventlerinden gerçek envanter durumu (Set/Updated/Cleared) + OnGUI
+  alt-orta ENVANTER şeridi (gerçek ikonlar + adet overlay) + event
+  logunda gerçek item adları (ör. "Kılıç+9"). Database yoksa vnum
+  fallback.
+- Üretilen `Assets/Resources/GameData/` gitignore'da (telifli isim/ikon
+  içerir — ADR-0003); pipeline tekrarlanabilir: extract → convert →
+  Unity import (adımlar SPRINT_10 kaydında).
+- `Metin2.Frontend.Editor.asmdef`: `Metin2.Frontend` referansı.
 ### Eklenen (Sprint 10, devam)
 - **SP10-2 proto converter**: `Tools/ProtoConverter/` — MMPT/MIPX + MCOZ
   blob decrypt → TMobTable[255]/TClientItemTable[156] parse → JSON;

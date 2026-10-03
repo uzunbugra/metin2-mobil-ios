@@ -95,14 +95,114 @@ Bulgu: PC/Monster pack'lerindeki dosyaların tamamına yakını tip 1
 (şifresiz MCOZ/LZO) — SECURITY tip 2 yalnızca birkaç dosyada. Yani model/
 animasyon extraction'ı anahtar gerektirmeden çalışacak.
 
-## Sıradaki adımlar (sırayla)
+## SP10-7 — .sub Sprite Slicer ✅
 
-1. **SP10-4 İkon pipeline**: icon pack extract → ASTC Sprite +
-   `ItemDef.iconSprite` bağlama (item_proto.json'daki iconPath eşlemesiyle).
-2. **Unity proto import**: item_proto.json/mob_proto.json → ScriptableObject
-   editor script (numeric alanlar; isimler local-only kalır).
-3. **SP10-6 Motion metadata parser**: motlist.txt + .msa → motion kayıt
-   tablosu (PC/Monster pack raporları .msa sayılarını doğruladı).
-4. **SP10-5 GR2 pilot dönüşüm**: LSLib(divine)→DAE→Blender→FBX zinciri,
-   1 karakter + 4 animasyon (araç kurulumu kullanıcı onaylı).
+`Tools/SubSlicer/` (net10.0, sıfır bağımlılık; subagent üretimi, gözden
+geçirildi):
+
+- `SubImage.cs` — GrpSubImage.cpp:65-133 + FileLoader.cpp tokenizer portu;
+  v1.0 ("D:/Ymir Work/UI/" öneki) + v2.0 (göreli yol) dalları; tırnak
+  içinde boşluklu değerler; token≠2 → dosya reddi (client parity); koordinat
+  atoi() semantiği (eksik değer 0).
+- CLI: `metin2-subslicer parse <inputDir> <out.json> [--recursive]`.
+- **Gerçek veri doğrulaması:** ETC pack'ten 784/784 .sub parse, 0 atlanan;
+  48 farklı atlas (windows.dds 136 ref, public.dds 118, taskbar.tga 89…);
+  dikdörtgen boyutları 3–495 × 4–357 px.
+- Çıktı: `Extracted/subs.json` — Unity tarafı atlas DDS + rect'ten Sprite
+  üretecek (sonraki adım: UI mock demo).
+
+## SP10-6 — Motion Metadata Parser ✅
+
+`Tools/MotionParser/` (net10.0, sıfır bağımlılık; subagent üretimi, gözden
+geçirildi — 949 satır, 4 dosya):
+
+- `TextScript.cs` — CTextFileLoader portu (Group/List blokları, quoted
+  string, `SetChildNode(name, index)` prefix-eşlemeli indeksli gruplar).
+- `MotListParser.cs` — RaceManager.cpp:180-326 birebir port: tip tablosu +
+  2-karakter truncation fallback (WAIT4→NAME_WAIT); bilinmeyen tipler
+  `canonical: null` + uyarı (client sessizce atlıyor — veri kaybı olmasın).
+- `MsaParser.cs` — RaceMotionData.cpp:309-472 + RaceMotionDataEvent.h +
+  GameType.cpp: attacking/hitPositions/event blokları.
+- CLI: `metin2-motionparser parse <raceRootDir> <out.json>`.
+
+**Gerçek veri doğrulaması:**
+- **Monster pack'teki 83 ırğın tamamı** (83/83 başarı, 0 hata); wolf
+  motlist + .msa tam detay (attacking + hitPositions + event'ler).
+- Warrior: 36 motion, 21 event (sentetik motlist + gerçek .msa — aşağıya bak).
+- Doğrulanan event tipleri: EFFECT, SCREEN_WAVING, SPECIAL_ATTACKING, FLY,
+  EFFECT_TO_TARGET.
+
+**Önemli bulgu — PC pack'tinde motlist.txt yok:** tüm pack'ler tarandı;
+PC ırklarının motlist'leri bu dump'da pack dışından geliyor (loose dosya/
+patcher). İstemci varsayılanı `motlist.txt` (RaceData.cpp:549,581). GR2
+pilot adımında (SP10-5) warrior motlist'inin başka kaynaktan bulunması
+gerekecek — ya da Monster ırklarıyla (motlist'leri pack içinde) devam
+edilmeli.
+
+**Format notları (kaynak referanslı):** event tipi 4 iki farklı varyantla
+geliyor (sade attack skalerleri vs tam AttackingData bloğu); `HitPosition`
+satırları 7 float; mode token'ı client tarafından yok sayılıyor.
+
+**Filtre notu:** subagent raporundaki "filtre tüm pack'i çıkarıyor"
+gözlemi doğrulanamadı — `--filter "monster/wolf/"` listelemede 42 kayıt
+döndürüyor (beklenen); bug yok.
+
+## Kalan adımlar (sırayla)
+
+1. **SP10-5 GR2 pilot dönüşüm**: LSLib(divine)→DAE→Blender→FBX zinciri,
+   1 karakter + 4 animasyon (araç kurulumu kullanıcı onaylı). Not: Monster
+   ırklarıyla başlamak gerekebilir (PC pack'lerinde motlist yok — SP10-6
+   bulgusu).
+2. **Unity UI sprite üretimi**: atlas DDS + `subs.json` rect'lerinden
+   Sprite üreten editor script (SP10-7 çıktısı üzerine).
+3. **Motion parser → Unity**: animasyon import otomasyonu (SP10-6 çıktısı
+   üzerine; GR2 dönüşümünden sonra anlamlı).
+
+## SP10-4 + Unity Proto Import ✅
+
+**Runtime** (`Assets/Scripts/Frontend/Proto/ProtoDatabases.cs`):
+- `ItemDef`/`MobDef` — sunum verisi (guide §7.4: otorite server'da);
+  vnum/type/flags/gold/values/sockets/iconPath + `Sprite` ikon linki;
+  MobDef `Folder` alanı gelecek GR2 pipeline'ının girdisi.
+- `ItemDatabase`/`MobDatabase` ScriptableObject + lazy vnum lookup.
+
+**Editor** (`Assets/Scripts/Frontend/Editor/ProtoImporter.cs`):
+- Menu: Metin2 → Import Proto Data; headless `-executeMethod
+  …ProtoImporter.ImportAll`.
+- ProtoConverter JSON → database asset'leri (`Assets/Resources/GameData/`,
+  local-only — telifli isim/ikon içerir, ADR-0003; .gitignore'a eklendi).
+- İkon TGA'ları `Extracted/icon` → `Assets/Resources/GameData/Icons`
+  (sprite, mipmap kapalı, ASTC 6x6 / 64px iOS+Android) + `ItemDef.Icon`
+  linki; eksik ikon sayılır ve raporlanır.
+- JsonUtility DTO'ları converter'ın camelCase JSON'una birebir.
+
+**Demo entegrasyonu** (`DemoWorldBehaviour`):
+- `ItemChanged` eventleri artık gerçek envanter durumunu tutuyor
+  (Set/Updated/Cleared — server-authoritative).
+- OnGUI'de alt-orta **ENVANTER şeridi**: hücre başına gerçek ikon
+  (yoksa vnum) + adet overlay'i; event logunda gerçek item adı
+  (ör. "Kılıç+9") — DemoServer'ın verdiği vnum 19 + 11243 üzerinden.
+- Database import edilmemişse zarif fallback (vnum metni).
+
+**Doğrulama (headless import koşusu):**
+- `ItemDatabase.asset`: **5.929 item, 5.011'i sprite'a bağlı** (918 ikonsuz:
+  221 kaynağı patch pack'lerde + item_list'te ikon tanımsız olanlar);
+  Türkçe localeName'ler düzgün serileşti ("Yang", "Türkçe Sürüm").
+- `MobDatabase.asset`: 1.347 mob.
+- 1.411 TGA → sprite (32x64 RGBA, ASTC 6x6/64px iOS+Android, mipmap off).
+- DemoServer'ın verdiği vnum 19 → "Kılıç+9" → `Icons/item/00010.tga` bağlı.
+
+**Tam pipeline (tekrarlanabilir):**
+```bash
+# 1. extract (locale_tr + icon)
+dotnet run --project Tools/PackExtractor -- extract fulldosya/fullbinary/pack/locale_tr.eix Extracted/locale_tr
+dotnet run --project Tools/PackExtractor -- extract fulldosya/fullbinary/pack/icon.eix       Extracted/icon
+# 2. convert
+dotnet run --project Tools/ProtoConverter -- mob  Extracted/locale_tr/mob_proto  Extracted/locale_tr/mob_proto.json
+dotnet run --project Tools/ProtoConverter -- item Extracted/locale_tr/item_proto Extracted/locale_tr/item_proto.json \
+  --item-list Extracted/locale_tr/item_list.txt --itemdesc Extracted/locale_tr/itemdesc.txt
+# 3. Unity import (headless) → Assets/Resources/GameData
+Unity -batchmode -quit -executeMethod Metin2.Frontend.EditorTools.ProtoImporter.ImportAll
+```
+
 
