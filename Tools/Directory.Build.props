@@ -1,0 +1,8 @@
+<Project>
+  <!-- macOS-safe build paths for tool projects (root Directory.Build.props
+       targets the Windows-authored headless host with backslash paths). -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

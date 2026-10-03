@@ -50,3 +50,16 @@ headless/
 # - fulldosya: server/client source workspace (4.2 GB, licensed game data)
 metin2-android/
 fulldosya/
+
+# Metin2 extract outputs — Ymir/Webzen copyrighted, local-only (ADR-0003:
+# KOD commit edilir, DATA commit edilmez)
+Extracted/
+Assets/Art/
+Assets/StreamingAssets/Extracted/
+Assets/**/*.dds
+Assets/**/*.tga
+Assets/**/*.gr2
+Assets/**/*.fbx
+
+# Deliberate tool projects (Unity-generated csproj noise stays ignored)
+!Tools/**/*.csproj

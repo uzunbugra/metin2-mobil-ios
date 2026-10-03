@@ -22,7 +22,13 @@
 
 ### 2.1 EterPack (.eix index + .epk data)
 
-- EIX header: `'EPKD'`, version 2, indexCount; **entry başına 188 byte**
+- EIX header: `'EPKD'`, version 2, indexCount; **entry başına 192 byte**
+  (`EterPack.h:47-62` + SP10-1 ampirik düzeltme: `char filename[161]` 4-hizalamayı
+  bozduğu için `filename_crc` 168'e hizalanır; kanıt: locale_tr index boyu
+  46476 = 12 + 242×192 — ilk rapordaki 188 yanlıştı). Alan ofsetleri: id@0,
+  filename@4, filename_crc@168, real_data_size@172, data_size@176, data_crc@180,
+  data_position@184, compressed_type@188. Index'teki `real_data_size` tip≥1
+  girdilerde güvenilmez — gerçek boy blob'un dwRealSize'ıdır (client parity).
   (`EterPack.h:47-62`): filename[161], filename_crc, real/data size, data_crc,
   data_position, compressed_type.
 - EIX şifreliyse fourcc `'MCOZ'` → LZO1X-1 + TEA; anahtar

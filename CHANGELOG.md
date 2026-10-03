@@ -4,6 +4,21 @@ Tüm önemli değişiklikler bu dosyada izlenir. Format: `Keep a Changelog` uyar
 Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
+### Eklenen (Sprint 10)
+- **SP10-1 EIX/EPK extractor CLI**: `Tools/PackExtractor/` (net10.0, sıfır
+  bağımlılık) — TEA (tea.cpp portu) + LZO1X (kernel safe decompressor
+  portu) + CRC32 + MCOZ blob + EIX/EPK parse + tip 0/1/2 extraction,
+  path sanitization, report/dumpindex. Gerçek veriyle doğrulandı
+  (locale_tr: MCOZ index decrypt, 242 dosya, item_proto MIPX/5929 item,
+  SECURITY tip-2 dosya CRC+TEA+LZO zinciri). **Ampirik düzeltme: entry
+  192 B** (188 değil). Kayıt:
+  `docs/sprints/SPRINT_10-content-pipeline.md`.
+- **SP10-8 lisans ADR**: `docs/decisions/ADR-0003-asset-licensing-and-usage.md`
+  — dahili kullanım sınırı, "KOD commit / DATA commit etme", extract
+  çıktıları gitignore'da (`Extracted/`, `Assets/Art/`,
+  `Assets/**/*.{dds,tga,gr2,fbx}`).
+- `Tools/**/*.csproj` gitignore negasyonu (kasıtlı araç projeleri commit
+  edilir; Unity üretimi csproj gürültüsü ignore kalır).
 ### Eklenen (Sprint 8)
 - **Safe area** (notch/Dynamic Island/home indicator): `DemoWorldBehaviour`
   OnGUI HUD'ları ve SALDIR bölgesi `Screen.safeArea`'dan inset alıyor
