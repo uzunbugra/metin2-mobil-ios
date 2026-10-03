@@ -30,6 +30,7 @@ Mevcut Metin2 (Razuning-V5 / 40k tabanlı) C++ sunucusuna bağlanan, Unity/C# il
 | Sprint 5 — Envanter Aksiyonları (adım 5) | ✅ Tamamlandı | `InventoryClient` gönderim: use/move/drop/pickup/use-to-item (loopback kanıtlı) |
 | Sprint 6 — Önyüz Temeli (adım 1) | ✅ Tamamlandı | `GameFlow` + `DemoServer`: uçtan uca entegrasyon (GC_PHASE şeffaf tüketim dahil) |
 | Sprint 7 — URP Migration + iOS | ✅ Tamamlandı | BIRP→URP (deprecated fix), iOS Build Support + `IosBuildScript`, Xcode projesi headless üretildi; ilk iOS-line push'u |
+| Sprint 8 — iOS Cihaz Entegrasyonu | 🟡 Devam | Safe area ✅, lifecycle teardown ✅, shader pin ✅ — Xcode imzalama/cihaz koşusu kullanıcı adımını bekliyor |
 
 **Test: 685/685 ✅** (`dotnet test headless/Metin2.Tests.Headless.csproj`)
 
@@ -497,6 +498,7 @@ dotnet test headless/Metin2.Tests.Headless.csproj
 - [`docs/sprints/SPRINT_04-auth-login.md`](docs/sprints/SPRINT_04-auth-login.md) — Auth login iz sürme + PanamaKey + dersler
 - [`docs/sprints/SPRINT_PLAN.md`](docs/sprints/SPRINT_PLAN.md) — Mevcut durum + iOS yol haritası (Sprint 7–12)
 - [`docs/sprints/SPRINT_07-urp-migration.md`](docs/sprints/SPRINT_07-urp-migration.md) — BIRP→URP migration kaydı
+- [`docs/assets/asset-pipeline-research.md`](docs/assets/asset-pipeline-research.md) — Fulldosya asset'lerinin Unity'ye taşınması (format analizi + pipeline)
 - [`docs/protocol/packet-catalog.json`](docs/protocol/packet-catalog.json) — 49 paket: 42 VERIFIED + 7 PARTIALLY (item aksiyonları +6)
 
 ## Bilinen Eksikler (UNVERIFIED)
@@ -508,8 +510,8 @@ dotnet test headless/Metin2.Tests.Headless.csproj
 
 ## Sonraki Adım
 
-**Sprint 8 (iOS cihaz entegrasyonu)**: Xcode imzalama + gerçek cihazda demo,
-safe area, yaşam döngüsü/reconnect, `Shader.Find` stripping doğrulaması.
+**Sprint 8 devamı**: Xcode'da imzalama (SPRINT_08 kaydındaki adım adım
+talimat) + gerçek cihazda demo koşusu; ardından cihaz performans profili.
 Yol haritası: [`docs/sprints/SPRINT_PLAN.md`](docs/sprints/SPRINT_PLAN.md).
 Ertelenen canlı giriş denemesi Sprint 9'da (staging izolasyonu, DB'ye yazma yok).
 

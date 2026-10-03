@@ -23,6 +23,10 @@ namespace Metin2.Frontend.EditorTools
     ///      (URP global settings are auto-provisioned by the URP package's
     ///      own AssetPostprocessor on domain reload).
     ///   4. Switches the project to Linear color space (URP standard).
+    ///   5. Ensures the URP Lit shader is included in player builds: the
+    ///      demo world builds materials at runtime via Shader.Find, which
+    ///      shader stripping could otherwise drop (pink materials on
+    ///      device). A material in a Resources folder pins the shader.
     ///
     /// Menu: Metin2 → Migrate to URP
     /// Headless:
@@ -34,6 +38,8 @@ namespace Metin2.Frontend.EditorTools
         private const string SettingsFolder = "Assets/Settings";
         private const string RendererPath = SettingsFolder + "/Metin2URPRenderer.asset";
         private const string PipelinePath = SettingsFolder + "/Metin2URP.asset";
+        private const string ResourcesFolder = "Assets/Resources";
+        private const string LitMaterialPath = ResourcesFolder + "/Metin2URPLit.mat";
 
         [MenuItem("Metin2/Migrate to URP")]
         public static void Migrate()
@@ -92,12 +98,48 @@ namespace Metin2.Frontend.EditorTools
                 Debug.Log("[UrpMigration] color space: Gamma -> Linear");
             }
 
+            // 6. Pin the URP Lit shader into player builds: the demo world
+            //    creates materials at runtime via Shader.Find("Universal
+            //    Render Pipeline/Lit"), which stripping could otherwise
+            //    drop. A material under Resources/ forces shader inclusion.
+            EnsureLitShaderIncluded();
+
             AssetDatabase.SaveAssets();
 
             string summary = $"[UrpMigration] done: pipeline={PipelinePath}, renderer={RendererPath}, " +
                 $"quality levels={QualitySettings.names.Length}, colorSpace={PlayerSettings.colorSpace}, " +
                 $"activePipeline={GraphicsSettings.currentRenderPipeline?.name ?? "none"}";
             Debug.Log(summary);
+        }
+
+        /// <summary>
+        /// Creates a URP Lit material under Resources/ if missing. Materials
+        /// in Resources folders are always included in builds, and their
+        /// shaders come with them — the reliable fix for runtime
+        /// Shader.Find materials being stripped (pink materials on device).
+        /// </summary>
+        private static void EnsureLitShaderIncluded()
+        {
+            if (AssetDatabase.LoadAssetAtPath<Material>(LitMaterialPath) != null)
+            {
+                return;
+            }
+
+            Shader lit = Shader.Find("Universal Render Pipeline/Lit");
+            if (lit == null)
+            {
+                Debug.LogWarning("[UrpMigration] URP Lit shader not found — skipping pin material");
+                return;
+            }
+
+            if (!AssetDatabase.IsValidFolder(ResourcesFolder))
+            {
+                AssetDatabase.CreateFolder("Assets", "Resources");
+            }
+
+            var material = new Material(lit);
+            AssetDatabase.CreateAsset(material, LitMaterialPath);
+            Debug.Log($"[UrpMigration] pinned URP Lit shader via {LitMaterialPath}");
         }
 
         /// <summary>

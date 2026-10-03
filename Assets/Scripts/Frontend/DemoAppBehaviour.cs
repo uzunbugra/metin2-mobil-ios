@@ -40,6 +40,7 @@ namespace Metin2.Frontend
         private GameFlow _flow;
         private DemoWorldBehaviour _world;
         private bool _busy;
+        private bool _worldAttached;
 
         private void Start()
         {
@@ -121,6 +122,7 @@ namespace Metin2.Frontend
                 // input and the event pump.
                 _world.enabled = true;
                 _world.Attach(_flow, _demo);
+                _worldAttached = true;
             }
             catch (Exception ex)
             {
@@ -129,10 +131,71 @@ namespace Metin2.Frontend
             }
         }
 
+        /// <summary>
+        /// iOS/Android lifecycle (guide §9.2): backgrounding kills the
+        /// session server-side (keepalive timeout ~60 s), so on pause the
+        /// session is torn down deterministically and the user returns to
+        /// the login screen. No zombie connections, no fabricated state.
+        /// </summary>
+        private void OnApplicationPause(bool pause)
+        {
+            if (!pause)
+            {
+                return;
+            }
+
+            if (!_worldAttached && _flow == null && _demo == null)
+            {
+                // No session yet — the login screen is static, nothing to
+                // tear down or rebuild.
+                return;
+            }
+
+            if (_worldAttached)
+            {
+                // The world owns flow/demo after Attach — its teardown
+                // disposes them exactly once.
+                _world.DetachAndTearDown();
+                _world.enabled = false;
+                _worldAttached = false;
+                _flow = null;
+                _demo = null;
+            }
+            else
+            {
+                _flow?.Dispose();
+                _flow = null;
+                _demo?.Dispose();
+                _demo = null;
+            }
+
+            Destroy(_selectPanel);
+            _selectPanel = null;
+            Destroy(_loginPanel);
+            _loginPanel = null;
+
+            BuildLoginScreen();
+            _busy = false;
+            _connectButton.interactable = true;
+            SetStatus("Arka plana alındı — oturum kapatıldı. Tekrar giriş yapın.");
+        }
+
         private void OnApplicationQuit()
         {
-            _flow?.Dispose();
-            _demo?.Dispose();
+            if (_worldAttached)
+            {
+                _world.DetachAndTearDown();
+                _worldAttached = false;
+                _flow = null;
+                _demo = null;
+            }
+            else
+            {
+                _flow?.Dispose();
+                _flow = null;
+                _demo?.Dispose();
+                _demo = null;
+            }
         }
 
         // --- UI construction ----------------------------------------------------------

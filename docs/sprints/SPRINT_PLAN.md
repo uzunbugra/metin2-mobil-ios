@@ -77,18 +77,45 @@ dosya+satır referanslı) inşa edildi; önyüz temeli DemoServer üzerinden
 - Gerçek sunucuda auth → channel → karakter listesi görüntüleniyor.
 - PC istemcisi login'i bozulmuyor; DB'ye yazma yok (staging izolasyonu).
 
-### Sprint 10 — İçerik Pipeline'ı
+### Sprint 10 — İçerik Pipeline'ı (fulldosya asset'leri)
+> Kaynak araştırma: [`docs/assets/asset-pipeline-research.md`](assets/asset-pipeline-research.md)
+> (formatlar kaynak-referanslı, anahtarlar ve araç zinciri belirlendi).
+> **Lisans notu:** asset'ler Ymir/Webzen telifli — yalnızca dahili kullanım;
+> extract çıktıları repoya/public kanala konmaz (guide §7).
+
 **İşler**
-- `item_proto`/`mob_proto` dönüştürücü (DumpProto kaynak; deterministik,
-  input hash raporlu — guide §7.4).
-- Item ikonları + envanter UI (slot bazlı, server event'leriyle senkron).
-- Tek harita parçası: Metin2 map formatı araştırması + koordinat dönüşümü
-  (`ToWorld` genelleyecek), ilk gerçek harita üzerinde spawn.
+- **SP10-1 EIX/EPK extractor CLI** (C#/Python): index parse (188B entry) +
+  LZO1X + TEA (anahtarlar elimizde); ilk hedef `locale_tr` pack'i →
+  `item_proto`/`mob_proto`/`item_list`/`itemdesc`. Kabul: DumpProto alan
+  ofsetleriyle byte-byte eşleşme.
+- **SP10-2 Proto converter:** proto + item_list + itemdesc → JSON →
+  `ItemDef`/`MobDef` ScriptableObject; CP1254→UTF-8; deterministik input-hash.
+  Kabul: vnum sayısı = header count, 20 kayıt spot-check.
+- **SP10-3 Extractor genişletme:** `icon`, `PC`, `Monster`, `ETC` pack
+  dökümü + içerik envanter raporu (tür/adet/boyut istatistikleri).
+- **SP10-4 İkon pipeline:** TGA ikonlar → ASTC Sprite + `ItemDef` bağlama;
+  örnek 100 item ile envanter UI mock'unda gösterim.
+- **SP10-5 GR2 pilot dönüşüm:** 1 karakter (pc/warrior gövde+saç) + 4
+  animasyon (wait/run/attack1/dead) → LSLib(divine)→DAE→Blender→FBX→Unity;
+  doğrulama checklist'i (kemik sayısı, bind pose, skin, süre).
+- **SP10-6 Motion metadata parser:** `motlist.txt`+`.msa` →
+  `(race, motionType)→clip+duration+accumulation+events` ScriptableObject.
+  Root motion KULLANMA — accumulation hareket koduna veri (server-otorite).
+- **SP10-7 UI sprite slicer:** `.sub` parser + atlas DDS'ten Unity Sprite;
+  örnek slot/cooltime sprite'ları ile mini demo.
+- **SP10-8 Lisans değerlendirme notu:** dahili kullanım sınırı + store
+  dağıtım riskinin yazılı tescili (ADR).
+- **SP10-9 AssetPostprocessor preset'leri:** rig Generic, ASTC, mesh
+  compression, 30 FPS animasyon — import standardizasyonu.
 
 **Çıkış kriterleri**
-- En az bir item gerçek proto verisinden render ediliyor; use/move sunucu
-  onaylı çalışıyor.
-- Karakter gerçek harita parçasında spawn oluyor.
+- `locale_tr` + `icon` pack'leri deterministik dökülebiliyor; proto verisi
+  ScriptableObject olarak Unity'de.
+- En az bir karakter + 4 animasyon Unity'de doğru render/loop ediyor.
+- En az bir item gerçek proto verisinden ikonuyla render ediliyor; use/move
+  sunucu onaylı çalışıyor.
+- Karakter gerçek harita parçasında spawn oluyor (harita araştırması bu
+  sprintte başlar, tamamlanması Sprint 10+).
 
 ### Sprint 11 — Gameplay Derinliği
 **İşler**

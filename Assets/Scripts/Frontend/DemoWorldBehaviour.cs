@@ -188,18 +188,26 @@ namespace Metin2.Frontend
 
         // --- world construction -------------------------------------------------
 
+        private GameObject _sun;
+        private GameObject _ground;
+
         private void CreateWorld()
         {
+            // Mobile: explicit 60 FPS (iOS defaults to 30 for battery).
+            Application.targetFrameRate = 60;
+
             var lightGo = new GameObject("Sun");
             lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
             light.shadows = LightShadows.Soft;
+            _sun = lightGo;
 
             var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "Ground";
             ground.transform.localScale = new Vector3(10f, 1f, 10f);
             Colorize(ground, new Color(0.18f, 0.26f, 0.16f));
+            _ground = ground;
 
             _cameraTransform = Camera.main != null ? Camera.main.transform : null;
             if (_cameraTransform == null)
@@ -209,6 +217,76 @@ namespace Metin2.Frontend
                 cameraGo.AddComponent<Camera>();
                 _cameraTransform = cameraGo.transform;
             }
+        }
+
+        /// <summary>
+        /// iOS/Android lifecycle (guide §9.2): backgrounding the app kills
+        /// the session (server keepalive timeout ~60 s, desc.cpp:174-180),
+        /// so tear it down deterministically instead of leaving a zombie
+        /// connection. Cancels the event pump, destroys world visuals and
+        /// disposes the flow/demo it owns (attached mode). Idempotent.
+        /// </summary>
+        public void DetachAndTearDown()
+        {
+            if (!_attached && _flow == null)
+            {
+                return;
+            }
+
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+
+            foreach (EntityView view in _entities.Values)
+            {
+                if (view.Transform != null)
+                {
+                    Destroy(view.Transform.gameObject);
+                }
+            }
+
+            _entities.Clear();
+
+            if (_sun != null)
+            {
+                Destroy(_sun);
+                _sun = null;
+            }
+
+            if (_ground != null)
+            {
+                Destroy(_ground);
+                _ground = null;
+            }
+
+            var flow = _flow;
+            var demo = _demo;
+            _flow = null;
+            _demo = null;
+            _attached = false;
+            _journeyFailed = false;
+            _cameraTransform = null;
+
+            // Dispose last; guard against double-dispose from the owner.
+            try
+            {
+                flow?.Dispose();
+            }
+            catch (Exception)
+            {
+                // Already disposed — teardown must stay safe.
+            }
+
+            try
+            {
+                demo?.Dispose();
+            }
+            catch (Exception)
+            {
+                // Already disposed.
+            }
+
+            Log("oturum kapatildi (arka plan / lifecycle)");
         }
 
         private void SpawnPlayer(PacketGCMainCharacter main)
@@ -329,8 +407,19 @@ namespace Metin2.Frontend
             }
         }
 
-        /// <summary>Attack zone in screen coordinates (origin bottom-left, like Touch.position).</summary>
-        private Rect AttackZoneScreen => new Rect(Screen.width - 300f, 20f, 280f, 200f);
+        /// <summary>
+        /// Attack zone in screen coordinates (origin bottom-left, like
+        /// Touch.position), inset from the safe area so the home indicator
+        /// and rounded corners don't swallow touches.
+        /// </summary>
+        private Rect AttackZoneScreen
+        {
+            get
+            {
+                Rect safe = Screen.safeArea;
+                return new Rect(safe.xMax - 300f, safe.yMin + 20f, 280f, 200f);
+            }
+        }
 
         private Vector2 ReadMoveDirection()
         {
@@ -463,25 +552,34 @@ namespace Metin2.Frontend
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(10, 10, 420, 168), "METIN2 UNITY — DEMO MODE (DemoServer in-process)");
+            // Safe area (notch / Dynamic Island / home indicator) — GUI
+            // coordinates, top-left origin. Corner-anchored HUD elements
+            // inset from the safe area instead of the raw screen.
+            Rect safe = Screen.safeArea;
+            float safeLeft = safe.x;
+            float safeTop = Screen.height - safe.y - safe.height;
+            float safeRight = safe.x + safe.width;
+            float safeBottom = safeTop + safe.height;
+
+            GUI.Box(new Rect(safeLeft + 10f, safeTop + 10f, 420f, 168f), "METIN2 UNITY — DEMO MODE (DemoServer in-process)");
             string state = _flow == null ? "starting" : _journeyFailed ? "FAILED" : _flow.State.ToString();
             string phase = _flow?.ServerPhase.ToString() ?? "-";
-            GUI.Label(new Rect(20, 34, 400, 20), $"Flow: {state}    Server phase: {phase}");
-            GUI.Label(new Rect(20, 54, 400, 20),
+            GUI.Label(new Rect(safeLeft + 20f, safeTop + 34f, 400f, 20f), $"Flow: {state}    Server phase: {phase}");
+            GUI.Label(new Rect(safeLeft + 20f, safeTop + 54f, 400f, 20f),
                 _flow?.MainCharacter.Vid > 0
                     ? $"Character: {_flow.MainCharacter.Name} (VID {_flow.MainCharacter.Vid})"
                     : "Character: -");
-            GUI.Label(new Rect(20, 74, 400, 20), $"HP: {_hp}/{_maxHp}    Entities: {_entities.Count}");
-            GUI.Label(new Rect(20, 94, 400, 20), $"Pos (cm): {_playerPos.x:0}, {_playerPos.y:0}    Heading: {_playerHeading:0}");
+            GUI.Label(new Rect(safeLeft + 20f, safeTop + 74f, 400f, 20f), $"HP: {_hp}/{_maxHp}    Entities: {_entities.Count}");
+            GUI.Label(new Rect(safeLeft + 20f, safeTop + 94f, 400f, 20f), $"Pos (cm): {_playerPos.x:0}, {_playerPos.y:0}    Heading: {_playerHeading:0}");
 
-            GUI.Box(new Rect(10, Screen.height - 190, 620, 140), "Server events (wire-verified)");
+            GUI.Box(new Rect(safeLeft + 10f, safeBottom - 190f, 620f, 140f), "Server events (wire-verified)");
             for (int i = 0; i < _logLines.Count; i++)
             {
-                GUI.Label(new Rect(20, Screen.height - 166 + i * 18, 600, 18), _logLines[i]);
+                GUI.Label(new Rect(safeLeft + 20f, safeBottom - 166f + i * 18f, 600f, 18f), _logLines[i]);
             }
 
-            GUI.Box(new Rect(Screen.width - 320, 10, 310, 74), "Controls");
-            GUI.Label(new Rect(Screen.width - 310, 34, 290, 60),
+            GUI.Box(new Rect(safeRight - 320f, safeTop + 10f, 310f, 74f), "Controls");
+            GUI.Label(new Rect(safeRight - 310f, safeTop + 34f, 290f, 60f),
                 "Touch: sol yarı = joystick, SALDIR = attack\nKeyboard: WASD move, SPACE attack");
 
             DrawTouchControls();

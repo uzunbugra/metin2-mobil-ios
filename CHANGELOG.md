@@ -4,7 +4,28 @@ Tüm önemli değişiklikler bu dosyada izlenir. Format: `Keep a Changelog` uyar
 Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
-### Eklenen
+### Eklenen (Sprint 8)
+- **Safe area** (notch/Dynamic Island/home indicator): `DemoWorldBehaviour`
+  OnGUI HUD'ları ve SALDIR bölgesi `Screen.safeArea`'dan inset alıyor
+  (dokunma hit-test ve görsel aynı rect).
+- **Yaşam döngüsü** (guide §9.2): `DemoAppBehaviour.OnApplicationPause` —
+  arka plana geçişte oturum deterministic kapanır (sunucu keepalive
+  timeout ~60 s), login ekranı yeniden kurulur. Sahiplik modeli:
+  `_worldAttached` + `DetachAndTearDown` (idempotent, double-dispose
+  guard'lı, entity/sun/ground imhası dahil).
+- **Shader stripping fix**: `Assets/Resources/Metin2URPLit.mat` — Resources
+  pin materyali, runtime `Shader.Find("URP/Lit")` üretimini cihaz
+  build'lerinde sabitler (SPRINT_07 riski kapandı).
+- `Application.targetFrameRate = 60` (iOS default 30).
+- **Fulldosya asset pipeline araştırması** (subagent, read-only):
+  `docs/assets/asset-pipeline-research.md` — EIX/EPK formatı (188B entry,
+  LZO1X+TEA, anahtarlar), karakter zinciri (.msm/.msa/.gr2), UI (.sub
+  sprite slicing + DDS atlas), proto formatları (MMPT/MIPX + anahtarlar),
+  GR2→Unity dönüşüm zinciri (LSLib→DAE→Blender→FBX); Sprint 10 iş
+  kalemleri (SP10-1..9) SPRINT_PLAN.md'ye işlendi. Lisans notu: asset'ler
+  yalnızca dahili kullanım.
+- `docs/sprints/SPRINT_08-ios-device.md` kaydı.
+### Eklenen (Sprint 7)
 - **URP migration (Sprint 7)**: Built-in Render Pipeline → Universal Render
   Pipeline. Unity 6.5+ BIRP'i deprecated etti; proje Unity 6000.6.4f1'de
   uyarı veriyordu. `com.unity.render-pipelines.universal` 17.6.0 paketi +
