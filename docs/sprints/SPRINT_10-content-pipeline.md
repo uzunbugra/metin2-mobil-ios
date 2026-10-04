@@ -149,14 +149,137 @@ döndürüyor (beklenen); bug yok.
 
 ## Kalan adımlar (sırayla)
 
-1. **SP10-5 GR2 pilot dönüşüm**: LSLib(divine)→DAE→Blender→FBX zinciri,
-   1 karakter + 4 animasyon (araç kurulumu kullanıcı onaylı). Not: Monster
-   ırklarıyla başlamak gerekebilir (PC pack'lerinde motlist yok — SP10-6
-   bulgusu).
+1. ~~**SP10-5 GR2 pilot dönüşüm**~~ ✅ (aşağıda)
 2. **Unity UI sprite üretimi**: atlas DDS + `subs.json` rect'lerinden
    Sprite üreten editor script (SP10-7 çıktısı üzerine).
 3. **Motion parser → Unity**: animasyon import otomasyonu (SP10-6 çıktısı
    üzerine; GR2 dönüşümünden sonra anlamlı).
+4. **GR2 toplu dönüşüm**: wolf pilotunu üretim zincirine genişletme
+   (Monster pack 83 ırk; animasyon GR2'leri motlist eşlemesiyle).
+
+## SP10-5 — GR2 Model Pilot Dönüşümü (wolf) ✅
+
+**Hedef:** Metin2 `wolf.gr2` → Unity'de gerçek model. Planlanan zincir
+LSLib(divine)→DAE→Blender→FBX idi; **Blender 5.x Collada desteğini
+kaldırdığı için** zincir sadeleşti: **GR2 → divine → GLB → GLTFast**.
+
+### Araç zinciri (macOS ARM64, kaynak derleme)
+
+Upstream LSLib release binary'si x64-only (Rosetta yok) → kaynaktan
+derlendi: `/Users/bugra/Desktop/projects/lslib/lslib-src`
+(depth-1 clone + unshallow, local çalışma kopyası, upstream'e push yok).
+
+Derleme düzeltmeleri (hepsi macOS/ARM64 derlemesi için; GR2 dönüşüm
+yolunu etkilemeyen story-parser düzeltmeleri dahil):
+
+- 2018 üretilmiş story parser dosyaları git geçmişinden restore
+  (25ba95c~1): `Goal.lex.cs`/`Goal.yy.cs`/`StoryHeader.lex.cs`/
+  `StoryHeader.yy.cs` — Windows-only GPPG/GPLEX pre-build adımını atlar.
+- `#line` direktifleri temizlendi, `using QUT.Gppg;` eklendi.
+- Parser generic'leri el yazımı ScanBase'lerle hizalandı:
+  Goal → `ShiftReduceParser<object, CodeLocation>`,
+  Header → `ShiftReduceParser<ASTNode, LexLocation>`.
+- `GoalParser.LegacyCompat.cs`: 2018 grammar tablolarının çağırdığı
+  eski ariteli `Make*` overload'ları (grammar evriminde parametre
+  eklenmiş; story decompile dışında kullanılmıyor).
+- `FastLZCompressor` stub'ı (LSLib.Native; VTex-only, fail-closed).
+- `LSLibNative.vcxproj` referansı kaldırıldı (C++/CLI, macOS'ta yok);
+  `PackageReader.cs` yönetilen K4os LZ4'e çevrildi.
+- `PlatformTarget` x64 → AnyCPU (ARM64 süreçte çalışması için).
+- Divine CLI Unix yol doğrulaması düzeltildi (`Uri.IsFile` →
+  `Path.IsPathRooted`; `/Users/...` relative URI sayılıyordu).
+- .NET 8 hedefli DLL, portable .NET 10 SDK ile
+  `DOTNET_ROLL_FORWARD=Major` ile koşuyor.
+
+### Granny Oodle-1 decompression (codec 2) — saf C# port
+
+Metin2 GR2 dosyaları **sıkıştırılmış bölümler** kullanıyor (granny
+codec 2 = `GrannyOodle1Compression`; bkz. client granny.h). granny2.dll
+Windows x86 — macOS'ta yüklenemez. Çözüm:
+**[arves100/opengr2](https://github.com/arves100/opengr2)** (MPL-2.0)
+`oodle1.c`'nin saf C# portu: `LSLib/Granny/GR2/Oodle1.cs`
+(3×12B TParameter başlığı, 3 sözlüklü aritmetik kod çözücü, stop
+offset'leri section header'ın first16bit/first8bit alanlarından).
+`Granny2Compressor.Decompress` codec 2'de artık yönetilen yolu kullanıyor.
+
+### LSLib düzeltmeleri (Metin2 dosyaları için)
+
+1. **`MemberDefinition.LookupFieldInfo`** (Format.cs): FieldInfo cache'i
+   aynı isimli alanlarda (`UserDefinedProperties` hem Bone hem Mesh
+   ExtendedData'da) yanlış tipe bağlanıyordu → declaring-type uyumsuzsa
+   yeniden çözümleme.
+2. **`GLTFVertex` vertex remap**: SharpGLTF `UseVertex` eşit vertex'leri
+   deduple edip gerçek indeks döndürüyor; LSLib üçgenleri orijinal GR2
+   indeksleriyle yazıyordu → 762 vertex / 98 tekrar → aksesör taşması.
+   Şimdi `UseVertex` dönüş değerinden remap tablosu kuruluyor.
+3. **Z-up tespiti** (Exporter.cs): GR2 yüklerken `Root.ZUp` hiç
+   set edilmiyordu (yalnız Collada import'ta). ArtToolInfo
+   `UpVector == (0,0,1)` (3ds Max) ise `ZUp = true` →
+   `ConvertToYUp` uygulanıyor. Wolf: 44.8 × 95.8(Y) × 220 (cm).
+4. **Normal sanitizasyonu** (GLTFVertex.cs): eski mesh'lerde
+   normalize edilmemiş/NaN normaller → birim uzunluk + sıfır/NaN
+   fallback (+Z). glTF şartı 0.99–1.01.
+5. **`ExportMeshExtensions` null-guard**: Divinity mesh-properties
+   bloğu Metin2'de yok → atlanıyor.
+
+### Pipeline (tekrarlanabilir)
+
+```bash
+# 0. LSLib derle (yukarıdaki düzeltmelerle; local: ~/Desktop/projects/lslib/lslib-src)
+DOTNET_ROOT=<sdk> dotnet build Divine/Divine.csproj -c Release -p:PreBuildEvent=
+
+# 1. wolf'u Monster pack'ten çıkar (SP10-1 aracı)
+dotnet run --project Tools/PackExtractor -- extract \
+  fulldosya/fullbinary/pack/Monster.eix Extracted/Monster --filter "monster/wolf/"
+
+# 2. GR2 → GLB (Oodle-1 + Z-up dönüşümü divine içinde)
+DOTNET_ROLL_FORWARD=Major dotnet <divine>/Divine.dll -a convert-model -g dos2 \
+  -s Extracted/gr2-pilot/wolf.gr2 -d Extracted/gr2-pilot/wolf.glb
+
+# 3. Doku: DDS → PNG (Unity DDS importçusu Metin2 DDS'ini reddediyor;
+#    Blender headless ile dönüştür)
+blender --background --python-expr "<load dds, save png>"
+
+# 4. Unity: GLB + PNG'yı Assets/Art/Characters/wolf/'a kopyala, sonra
+Unity -batchmode -executeMethod Metin2.Frontend.EditorTools.WolfPilot.BuildPrefab
+#    → Assets/Resources/GameData/Characters/wolf.prefab
+#    (0.01 ölçek cm→m, Metin2URPLit materyal + wolf.png doku)
+
+# 5. Görsel doğrulama (opsiyonel)
+Unity -batchmode -executeMethod Metin2.Frontend.EditorTools.WolfPilot.Render
+#    → Extracted/gr2-pilot/wolf-preview.png
+```
+
+### Doğrulama
+
+- GLB: 663 pozisyon (762'den dedup), 966 üçgen, 40 eklem, tam vertex
+  atributları (POSITION/NORMAL/TEXCOORD_0/JOINTS_0/WEIGHTS_0), Y-up,
+  ayaklar y≈0. SharpGLTF save-time validasyonundan geçiyor.
+- Unity import (GLTFast `com.unity.cloud.gltfast` 6.20.0):
+  SkinnedMeshRenderer 'Object02' 663 vert / 966 tri / 40 bone.
+- Render analizi: 3/4 açıdan dört ayaklı siluet (kulaklar üstte, gövde
+  ortada, bacaklar altta, kuyruk sola süpürüyor), koyu gri kürk dokusu
+  (wolf.png), magenta yok (shader sağlam).
+- `DemoWorldBehaviour.SpawnEntity`: SpawnedMobVid artık
+  `Resources/GameData/Characters/wolf` prefab'ını spawn ediyor
+  (pipeline asset'i yoksa küp fallback — ADR-0003 gereği DATA commit
+  edilmiyor, taze klonlarda fallback çalışıyor).
+- Headless testler: 683/685 (2 ağ testi TIME_WAIT flakiness — bilinen
+  çevresel durum, protokol kodu değişmedi).
+
+### Buluntular
+
+- Metin2 GR2'leri Oodle-1 (codec 2) sıkıştırılmış — granny2.dll
+  gereksinimi saf C# portla aşıldı (codec 1/Oodle-0 desteklenmiyor;
+  Metin2 dosyalarında görülmedi).
+- Blender 5.x'te Collada import YOK (`io_scene_dae` kaldırıldı) →
+  DAE ara adımı atıldı, GLB doğrudan Unity'ye (GLTFast). Blender
+  yalnızca DDS→PNG dönüşümünde kullanıldı.
+- Unity'nin DDS importçusu standart DXT1 DDS'i reddediyor
+  ("Unsupported") → PNG'ye çevriliyor.
+- URP Lit materyal `Camera.Render()` (built-in yol) altında magenta —
+  yalnızca editör önizlemesi için geçici materyal kullanılıyor; oyun
+  içinde (URP aktif) sorun yok.
 
 ## SP10-4 + Unity Proto Import ✅
 

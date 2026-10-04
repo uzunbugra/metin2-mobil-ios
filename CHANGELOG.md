@@ -5,6 +5,29 @@ Tarihler UTC. Her madde ilgili sprint kaydına ve commit'e bağlanır.
 
 ## [Unreleased]
 ## [Unreleased]
+### Eklenen (Sprint 10, devam 3)
+- **SP10-5 GR2 model pilot dönüşümü (wolf)**: Metin2 `wolf.gr2` →
+  Unity'de gerçek model. Zincir: GR2 → divine (LSLib, macOS ARM64 kaynak
+  derleme) → GLB → GLTFast (`com.unity.cloud.gltf` 6.20.0). Blender
+  5.x Collada'yı kaldırdığı için DAE ara adımı atıldı.
+- **Granny Oodle-1 (codec 2) saf C# portu**: Metin2 GR2 bölümleri
+  Oodle-1 sıkıştırılmış; granny2.dll (Windows x86) yerine
+  opengr2/MPL-2.0 port'u (`Oodle1.cs` local LSLib kopyasında).
+- **Metin2 GR2 için LSLib düzeltmeleri** (local lslib-src kopyası):
+  LookupFieldInfo tip-cache uyuşmazlığı, GLTF vertex dedup remap,
+  ArtToolInfo'dan Z-up tespiti, normal sanitizasyonu (NaN/normalize),
+  Divinity mesh-metadata null-guard, Unix yol doğrulaması, AnyCPU.
+- **`WolfPilot.cs`** (Editor): `BuildPrefab` (GLB → 0.01 ölçek +
+  Metin2URPLit + wolf.png doku → `Resources/GameData/Characters/wolf`
+  prefab) + `Render` (headless PNG doğrulama).
+- **Demo mob spawn**: `DemoWorldBehaviour.SpawnEntity` — SpawnedMobVid
+  gerçek wolf prefab'ı spawn ediyor (asset yoksa küp fallback;
+  ADR-0003).
+- Wolf: 663 vert, 966 üçgen, 40 eklem, Y-up (44.8×95.8×220 cm),
+  dokulu; render analiziyle dört ayaklı siluet doğrulandı.
+- Doğrulama: Unity derleme 0 hata; headless testler 683/685
+  (2 ağ flake — TIME_WAIT, bilinen).
+
 ### Eklenen (Sprint 10, devam 2)
 - **SP10-6 motion metadata parser**: `Tools/MotionParser/` — motlist.txt +
   .msa parser (RaceManager/RaceMotionData/GameType birebir port; truncation

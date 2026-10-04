@@ -64,3 +64,4 @@ Assets/**/*.fbx
 
 # Deliberate tool projects (Unity-generated csproj noise stays ignored)
 !Tools/**/*.csproj
+Assets/Art.meta

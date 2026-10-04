@@ -426,18 +426,44 @@ namespace Metin2.Frontend
                 return;
             }
 
-            PrimitiveType shape = add.Vid == DemoServer.SpawnedMobVid
-                ? PrimitiveType.Cube
-                : PrimitiveType.Sphere;
-            var entity = GameObject.CreatePrimitive(shape);
-            entity.name = $"Entity {add.Vid}";
-            Colorize(entity, add.Vid == DemoServer.SpawnedMobVid
-                ? new Color(0.85f, 0.25f, 0.2f)
-                : new Color(0.3f, 0.85f, 0.4f));
-            entity.transform.position = ToWorld(add.X, add.Y);
-            entity.transform.rotation = Quaternion.Euler(0f, add.Angle * Mathf.Rad2Deg, 0f);
-            _entities[add.Vid] = new EntityView(entity.transform, add.Vid == DemoServer.SpawnedMobVid ? "mob" : "player");
-            Log($"spawn {add.Vid} ({_entities[add.Vid].Kind}) at ({add.X}, {add.Y})");
+            Transform entity;
+            string kind;
+            if (add.Vid == DemoServer.SpawnedMobVid)
+            {
+                kind = "mob";
+                var model = Resources.Load<GameObject>("GameData/Characters/wolf");
+                if (model != null)
+                {
+                    // SP10-5 pipeline: Metin2 GR2 -> divine -> GLB -> GLTFast
+                    // import -> WolfPilot.BuildPrefab (doku + 0.01 ölçek hazır).
+                    var wolf = Instantiate(model);
+                    wolf.name = $"Entity {add.Vid} (wolf)";
+                    entity = wolf.transform;
+                    Log($"spawn {add.Vid} (wolf model, {add.X}, {add.Y})");
+                }
+                else
+                {
+                    // Wolf pipeline asset'ı yok (ADR-0003: DATA commit edilmez)
+                    // -> eski küp fallback.
+                    var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    cube.name = $"Entity {add.Vid}";
+                    Colorize(cube, new Color(0.85f, 0.25f, 0.2f));
+                    entity = cube.transform;
+                    Log($"spawn {add.Vid} (mob, küp fallback - wolf.prefab yok)");
+                }
+            }
+            else
+            {
+                kind = "player";
+                var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sphere.name = $"Entity {add.Vid}";
+                Colorize(sphere, new Color(0.3f, 0.85f, 0.4f));
+                entity = sphere.transform;
+            }
+
+            entity.position = ToWorld(add.X, add.Y);
+            entity.rotation = Quaternion.Euler(0f, add.Angle * Mathf.Rad2Deg, 0f);
+            _entities[add.Vid] = new EntityView(entity, kind);
         }
 
         private void DespawnEntity(uint vid)
